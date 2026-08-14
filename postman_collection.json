@@ -1,0 +1,70 @@
+{
+  "info": {
+    "name": "Smart Parking Management System (SPMS)",
+    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Endpoints for User, Vehicle, Parking and Payment services will be added as they are implemented.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Eureka Server",
+      "item": [
+        {
+          "name": "Eureka Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8761/",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8761",
+              "path": [
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Eureka Registry (all apps)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8761/eureka/apps",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8761",
+              "path": [
+                "eureka",
+                "apps"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Eureka Health (Actuator)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8761/actuator/health",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8761",
+              "path": [
+                "actuator",
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
