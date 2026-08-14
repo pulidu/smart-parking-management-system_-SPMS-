@@ -1,22 +1,29 @@
 # ---------------------------------------------------------------------------
-# api-gateway (Spring Cloud Gateway) - centralized configuration
+# api-gateway test configuration
 # ---------------------------------------------------------------------------
-# Served by the Config Server to the api-gateway module. The gateway imports
-# this file via spring.config.import, so all routes are managed here, in one
-# place, instead of being duplicated in each gateway instance.
+# Hermetic test setup: the tests boot the gateway on a random port WITHOUT
+# contacting the Config Server or Eureka, and define the same route table
+# inline so routing behavior can be verified in isolation.
 
 spring:
   application:
     name: api-gateway
-
+  # Clear the config-server import from the main application.yml so tests do
+  # not depend on a running Config Server.
+  config:
+    import:
   cloud:
+    config:
+      # The config-client's import check requires a "configserver:" import; the
+      # tests deliberately have none, so disable the check.
+      import-check:
+        enabled: false
+
     gateway:
       server:
         webflux:
           routes:
             - id: user-service
-              # "lb" scheme = resolve "USER-SERVICE" through Eureka and load
-              # balance across its registered instances (Spring Cloud LoadBalancer)
               uri: lb://USER-SERVICE
               predicates:
                 - Path=/api/users/**
@@ -37,9 +44,14 @@ spring:
                 - Path=/api/payments/**
 
 server:
-  port: ${API_GATEWAY_PORT:8080}
+  port: 0
 
-# Expose the actuator endpoint that lists the active routes for verification.
+# Do not register with / fetch from Eureka during tests.
+eureka:
+  client:
+    enabled: false
+
+# Expose the gateway actuator endpoint so tests can assert the active routes.
 management:
   endpoints:
     web:

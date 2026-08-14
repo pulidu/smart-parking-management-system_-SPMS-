@@ -37,7 +37,13 @@ class ConfigServerApplicationTests {
         String body = fetch("/api-gateway/default");
         assertThat(body)
                 .contains("api-gateway")
-                .contains("8080");
+                .contains("8080")
+                .contains("lb://USER-SERVICE")
+                .contains("lb://VEHICLE-SERVICE")
+                .contains("lb://PARKING-SERVICE")
+                .contains("lb://PAYMENT-SERVICE")
+                .contains("/api/users/**")
+                .contains("/api/payments/**");
     }
 
     @Test

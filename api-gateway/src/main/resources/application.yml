@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# api-gateway bootstrap configuration
+# ---------------------------------------------------------------------------
+# The gateway is intentionally thin: its route table lives in the centralized
+# Config Server (config-server/src/main/resources/config/api-gateway.yml) and is
+# pulled in through spring.config.import below. The settings in this file only
+# bootstrap the gateway (name, config-server location, Eureka) so it can start
+# and register before any routes arrive.
+
+spring:
+  application:
+    name: api-gateway
+  # Fetch centralized configuration from the Config Server. The "optional:"
+  # prefix lets the gateway start with a warning if the Config Server is down.
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+
+server:
+  port: ${API_GATEWAY_PORT:8080}
+
+# Register with Eureka and fetch the registry to resolve lb:// service names.
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+# Expose health, info and the gateway route endpoint for verification.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always

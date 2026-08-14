@@ -12,6 +12,7 @@ users, their vehicles, parking spaces, parking sessions and payments.
 | Microservices    | Spring Cloud 2025.1.2 (Oakwood)              |
 | Service Registry | Spring Cloud Netflix Eureka Server 5.0.2     |
 | Config Server    | Spring Cloud Config Server 5.0.4             |
+| API Gateway      | Spring Cloud Gateway 5.0.2 (WebFlux)         |
 | Build tool       | Apache Maven (Maven Wrapper `mvnw` included) |
 | API style        | REST (JSON)                                  |
 
@@ -69,8 +70,8 @@ smart-parking-management-system/
 ├── pom.xml                 # Multi-module aggregator / parent POM
 ├── eureka-server/          # ✅ implemented (Phase 1)
 ├── config-server/          # ✅ implemented (Phase 2)
-├── api-gateway/            # scaffold only (Phase 2+)
-├── user-service/           # scaffold only (Phase 2+)
+├── api-gateway/            # ✅ implemented (Phase 2)
+├── user-service/           # scaffold only (Phase 3)
 ├── vehicle-service/        # scaffold only (Phase 2+)
 ├── parking-service/        # scaffold only (Phase 2+)
 ├── payment-service/        # scaffold only (Phase 2+)
@@ -87,7 +88,7 @@ smart-parking-management-system/
 | Multi-module POM  | ✅ Done                                      |
 | `eureka-server`   | ✅ Done — standalone Eureka registry, port 8761 |
 | `config-server`   | ✅ Done — native-repo Config Server, port 8888 |
-| `api-gateway`     | ⏳ Pending (Phase 2)                         |
+| `api-gateway`     | ✅ Done — Spring Cloud Gateway, port 8080   |
 | `user-service`    | ⏳ Pending (Phase 3)                         |
 | `vehicle-service` | ⏳ Pending (Phase 3)                         |
 | `parking-service` | ⏳ Pending (Phase 3)                         |
@@ -106,8 +107,8 @@ mvnw.cmd clean install
 ./mvnw clean install
 ```
 
-This compiles every implemented module and runs its tests (currently the
-Eureka Server context-load test).
+This compiles every implemented module and runs its tests (Eureka context-load,
+Config Server endpoint and API Gateway routing tests).
 
 ## Running the Eureka Server
 
@@ -186,6 +187,80 @@ port 8888 and registers with Eureka as `CONFIG-SERVER`. The default `Accept`
 header returns YAML; `Accept: application/json` returns JSON. Each response
 contains the service-specific property source plus the shared `application.yml`
 source. Full details are in `config-server/README.md`.
+
+## Running the API Gateway
+
+Build first (see above), start the Eureka Server and Config Server (previous
+sections), then run one of:
+
+```bash
+# Option A - from the project root, using the Maven wrapper
+mvnw.cmd -pl api-gateway spring-boot:run
+
+# Option B - run the built executable jar (after `mvnw.cmd clean install`)
+java -jar api-gateway/target/api-gateway-0.0.1-SNAPSHOT.jar
+
+# Option C - from an IDE
+# Open the project, then run com.smartparkingmanagementsystem.gateway.ApiGatewayApplication
+```
+
+On a successful start you will see:
+
+```
+Netty started on port 8080 (http)
+Started ApiGatewayApplication ...
+```
+
+The gateway pulls its configuration (including the route table) from the Config
+Server, registers with Eureka as `API-GATEWAY` and fetches the registry to
+resolve backend services. If the Config Server is unavailable it still starts
+(with a warning) but without routes.
+
+### Route table
+
+| Route (request path) | Target (Eureka service ID) |
+|----------------------|----------------------------|
+| `/api/users/**`      | `lb://USER-SERVICE`        |
+| `/api/vehicles/**`   | `lb://VEHICLE-SERVICE`     |
+| `/api/parking/**`    | `lb://PARKING-SERVICE`     |
+| `/api/payments/**`   | `lb://PAYMENT-SERVICE`     |
+
+The `lb://` scheme tells the gateway to resolve the service name through
+**Eureka service discovery** and load-balance across its registered instances —
+no backend host/port is hard-coded. Routes are defined centrally in
+`config-server/src/main/resources/config/api-gateway.yml`.
+
+### Verifying
+
+| Check                        | URL / Command                                                    |
+|------------------------------|------------------------------------------------------------------|
+| Gateway health (actuator)    | http://localhost:8080/actuator/health                            |
+| Active routes (actuator)     | http://localhost:8080/actuator/gateway/routes                    |
+| Eureka registry (API-GATEWAY)| http://localhost:8761/eureka/apps                                |
+
+### Example requests
+
+Until the backend services are implemented (Phase 3), a proxied request reaches
+the gateway route and then fails with `503` because no service instance is
+registered yet — this proves discovery-based routing is wired up. Full details
+are in `api-gateway/README.md`.
+
+```bash
+# User Service (Phase 3 target: USER-SERVICE) - currently 503, no instance yet
+curl -i http://localhost:8080/api/users
+
+# Vehicle Service (Phase 3 target: VEHICLE-SERVICE)
+curl -i http://localhost:8080/api/vehicles/1
+
+# Parking Service (Phase 3 target: PARKING-SERVICE)
+curl -i http://localhost:8080/api/parking/spaces
+
+# Payment Service (Phase 3 target: PAYMENT-SERVICE)
+curl -i http://localhost:8080/api/payments/1
+
+# Unknown path - routed nowhere, gateway returns 404
+curl -i http://localhost:8080/nope
+```
 
 ## Configuration
 
