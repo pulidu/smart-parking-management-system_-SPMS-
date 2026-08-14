@@ -1,0 +1,27 @@
+# ---------------------------------------------------------------------------
+# user-service - local bootstrap configuration
+# ---------------------------------------------------------------------------
+# The service keeps only what it needs to boot and locate its centralized
+# configuration. The datasource (PostgreSQL), JPA settings, server port, Eureka
+# registration and management endpoints come from the Config Server
+# (config/user-service.yml merged with config/application.yml).
+#
+# Database credentials are supplied through environment variables at runtime
+# (DB_HOST, DB_PORT, USER_DB_NAME, USER_DB_USERNAME, USER_DB_PASSWORD) and are
+# never committed to source control.
+
+spring:
+  application:
+    name: user-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+
+server:
+  port: ${USER_SERVICE_PORT:8081}
+
+# Expose health (used by the gateway / Eureka).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

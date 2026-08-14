@@ -52,7 +52,9 @@ class ConfigServerApplicationTests {
         assertThat(body)
                 .contains("user-service")
                 .contains("8081")
-                .contains("jdbc:postgresql");
+                .contains("jdbc:postgresql")
+                .contains("ddl-auto")
+                .contains("update");
     }
 
     @Test

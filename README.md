@@ -13,6 +13,7 @@ users, their vehicles, parking spaces, parking sessions and payments.
 | Service Registry | Spring Cloud Netflix Eureka Server 5.0.2     |
 | Config Server    | Spring Cloud Config Server 5.0.4             |
 | API Gateway      | Spring Cloud Gateway 5.0.2 (WebFlux)         |
+| User Service     | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
 | Build tool       | Apache Maven (Maven Wrapper `mvnw` included) |
 | API style        | REST (JSON)                                  |
 
@@ -71,11 +72,11 @@ smart-parking-management-system/
 ├── eureka-server/          # ✅ implemented (Phase 1)
 ├── config-server/          # ✅ implemented (Phase 2)
 ├── api-gateway/            # ✅ implemented (Phase 2)
-├── user-service/           # scaffold only (Phase 3)
-├── vehicle-service/        # scaffold only (Phase 2+)
-├── parking-service/        # scaffold only (Phase 2+)
-├── payment-service/        # scaffold only (Phase 2+)
-├── docs/                   # architecture / API documentation
+├── user-service/           # ✅ implemented (Phase 3)
+├── vehicle-service/        # scaffold only (Phase 3)
+├── parking-service/        # scaffold only (Phase 3)
+├── payment-service/        # scaffold only (Phase 3)
+├── docs/                   # architecture / API / database documentation
 ├── postman_collection.json # Postman collection for the REST APIs
 ├── mvnw / mvnw.cmd         # Maven Wrapper (Maven 3.9.16)
 └── README.md
@@ -89,7 +90,7 @@ smart-parking-management-system/
 | `eureka-server`   | ✅ Done — standalone Eureka registry, port 8761 |
 | `config-server`   | ✅ Done — native-repo Config Server, port 8888 |
 | `api-gateway`     | ✅ Done — Spring Cloud Gateway, port 8080   |
-| `user-service`    | ⏳ Pending (Phase 3)                         |
+| `user-service`    | ✅ Done — users, auth, profiles, port 8081  |
 | `vehicle-service` | ⏳ Pending (Phase 3)                         |
 | `parking-service` | ⏳ Pending (Phase 3)                         |
 | `payment-service` | ⏳ Pending (Phase 3)                         |
@@ -108,7 +109,7 @@ mvnw.cmd clean install
 ```
 
 This compiles every implemented module and runs its tests (Eureka context-load,
-Config Server endpoint and API Gateway routing tests).
+Config Server endpoint, API Gateway routing and User Service integration tests).
 
 ## Running the Eureka Server
 
@@ -240,16 +241,17 @@ no backend host/port is hard-coded. Routes are defined centrally in
 
 ### Example requests
 
-Until the backend services are implemented (Phase 3), a proxied request reaches
-the gateway route and then fails with `503` because no service instance is
-registered yet — this proves discovery-based routing is wired up. Full details
-are in `api-gateway/README.md`.
+Until the remaining backend services are implemented (Phase 3), a proxied request
+to an unimplemented service reaches the gateway route and then fails with `503`
+because no service instance is registered yet — this proves discovery-based
+routing is wired up. `USER-SERVICE` is implemented, so `/api/users` requests are
+routed end-to-end. Full details are in `api-gateway/README.md`.
 
 ```bash
-# User Service (Phase 3 target: USER-SERVICE) - currently 503, no instance yet
+# User Service (implemented - routes to USER-SERVICE)
 curl -i http://localhost:8080/api/users
 
-# Vehicle Service (Phase 3 target: VEHICLE-SERVICE)
+# Vehicle Service (Phase 3 target: VEHICLE-SERVICE) - currently 503, no instance yet
 curl -i http://localhost:8080/api/vehicles/1
 
 # Parking Service (Phase 3 target: PARKING-SERVICE)
@@ -261,6 +263,82 @@ curl -i http://localhost:8080/api/payments/1
 # Unknown path - routed nowhere, gateway returns 404
 curl -i http://localhost:8080/nope
 ```
+
+## Running the User Service
+
+Build first (see above), start the Eureka Server, Config Server and API Gateway
+(previous sections), then run one of:
+
+```bash
+# Option A - from the project root, using the Maven wrapper
+mvnw.cmd -pl user-service spring-boot:run
+
+# Option B - run the built executable jar (after `mvnw.cmd clean install`)
+java -jar user-service/target/user-service-0.0.1-SNAPSHOT.jar
+
+# Option C - from an IDE
+# Open the project, then run com.smartparkingmanagementsystem.user.UserServiceApplication
+```
+
+The service reads its PostgreSQL connection from environment variables
+(`DB_HOST`, `DB_PORT`, `USER_DB_NAME`, `USER_DB_USERNAME`, `USER_DB_PASSWORD`)
+and registers with Eureka as `USER-SERVICE` on port `8081`. See
+`docs/database-setup.md` for the PostgreSQL provisioning steps.
+
+On a successful start you will see:
+
+```
+Tomcat started on port 8081 (http) with context path '/'
+Started UserServiceApplication ...
+```
+
+### Endpoints
+
+| Method | Path                     | Description                     |
+|--------|--------------------------|---------------------------------|
+| POST   | `/api/users`             | Register a user                 |
+| POST   | `/api/users/login`       | Authenticate (email + password) |
+| GET    | `/api/users/{id}`        | View a user profile             |
+| PUT    | `/api/users/{id}`        | Update a user profile           |
+| GET    | `/api/users/{id}/bookings` | Booking history (placeholder) |
+
+Roles: `DRIVER`, `OWNER`, `ADMIN`. Errors: 400 invalid input, 401 invalid login,
+404 user not found, 409 duplicate email. Full request/response samples are in
+`user-service/README.md`.
+
+### Verifying
+
+| Check                          | URL / Command                                        |
+|--------------------------------|------------------------------------------------------|
+| User Service health (actuator) | http://localhost:8081/actuator/health                |
+| Register a user (direct)       | `curl -X POST http://localhost:8081/api/users -H "Content-Type: application/json" -d "{\"name\":\"Alice\",\"email\":\"alice@example.com\",\"password\":\"secret123\",\"role\":\"DRIVER\"}"` |
+| Register via API Gateway       | Same POST but on `http://localhost:8080/api/users`   |
+| Eureka registry (USER-SERVICE) | http://localhost:8761/eureka/apps                    |
+
+### Example request/response
+
+```bash
+curl -X POST http://localhost:8081/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice Driver","email":"alice@example.com","password":"secret123","phone":"+1-555-0100","role":"DRIVER"}'
+```
+
+```json
+{
+  "id": 1,
+  "name": "Alice Driver",
+  "email": "alice@example.com",
+  "phone": "+1-555-0100",
+  "role": "DRIVER",
+  "createdAt": "2026-08-14T14:12:37.111561Z",
+  "updatedAt": "2026-08-14T14:12:37.111561Z"
+}
+```
+
+> Tip: the response of `POST /api/users` is the profile; capture `id` from it for
+> the `{id}`-based endpoints. Passwords are stored as BCrypt hashes and never
+> returned. `POST /api/users/login` returns `{"token": null, "user": {...}}` —
+> `token` is reserved for a future JWT/security layer.
 
 ## Configuration
 
