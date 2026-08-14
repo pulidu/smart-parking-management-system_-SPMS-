@@ -62,7 +62,9 @@ class ConfigServerApplicationTests {
         String body = fetch("/vehicle-service/default");
         assertThat(body)
                 .contains("vehicle-service")
-                .contains("8082");
+                .contains("8082")
+                .contains("ddl-auto")
+                .contains("update");
     }
 
     @Test

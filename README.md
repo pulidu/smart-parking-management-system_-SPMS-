@@ -14,6 +14,7 @@ users, their vehicles, parking spaces, parking sessions and payments.
 | Config Server    | Spring Cloud Config Server 5.0.4             |
 | API Gateway      | Spring Cloud Gateway 5.0.2 (WebFlux)         |
 | User Service     | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
+| Vehicle Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
 | Build tool       | Apache Maven (Maven Wrapper `mvnw` included) |
 | API style        | REST (JSON)                                  |
 
@@ -73,7 +74,7 @@ smart-parking-management-system/
 ├── config-server/          # ✅ implemented (Phase 2)
 ├── api-gateway/            # ✅ implemented (Phase 2)
 ├── user-service/           # ✅ implemented (Phase 3)
-├── vehicle-service/        # scaffold only (Phase 3)
+├── vehicle-service/        # ✅ implemented (Phase 3)
 ├── parking-service/        # scaffold only (Phase 3)
 ├── payment-service/        # scaffold only (Phase 3)
 ├── docs/                   # architecture / API / database documentation
@@ -91,7 +92,7 @@ smart-parking-management-system/
 | `config-server`   | ✅ Done — native-repo Config Server, port 8888 |
 | `api-gateway`     | ✅ Done — Spring Cloud Gateway, port 8080   |
 | `user-service`    | ✅ Done — users, auth, profiles, port 8081  |
-| `vehicle-service` | ⏳ Pending (Phase 3)                         |
+| `vehicle-service` | ✅ Done — vehicles + entry/exit, port 8082 |
 | `parking-service` | ⏳ Pending (Phase 3)                         |
 | `payment-service` | ⏳ Pending (Phase 3)                         |
 
@@ -109,7 +110,8 @@ mvnw.cmd clean install
 ```
 
 This compiles every implemented module and runs its tests (Eureka context-load,
-Config Server endpoint, API Gateway routing and User Service integration tests).
+Config Server endpoint, API Gateway routing, User Service and Vehicle Service
+integration tests).
 
 ## Running the Eureka Server
 
@@ -244,17 +246,18 @@ no backend host/port is hard-coded. Routes are defined centrally in
 Until the remaining backend services are implemented (Phase 3), a proxied request
 to an unimplemented service reaches the gateway route and then fails with `503`
 because no service instance is registered yet — this proves discovery-based
-routing is wired up. `USER-SERVICE` is implemented, so `/api/users` requests are
-routed end-to-end. Full details are in `api-gateway/README.md`.
+routing is wired up. `USER-SERVICE` and `VEHICLE-SERVICE` are implemented, so
+`/api/users` and `/api/vehicles` requests are routed end-to-end. Full details are
+in `api-gateway/README.md`.
 
 ```bash
 # User Service (implemented - routes to USER-SERVICE)
 curl -i http://localhost:8080/api/users
 
-# Vehicle Service (Phase 3 target: VEHICLE-SERVICE) - currently 503, no instance yet
+# Vehicle Service (implemented - routes to VEHICLE-SERVICE)
 curl -i http://localhost:8080/api/vehicles/1
 
-# Parking Service (Phase 3 target: PARKING-SERVICE)
+# Parking Service (Phase 3 target: PARKING-SERVICE) - currently 503, no instance yet
 curl -i http://localhost:8080/api/parking/spaces
 
 # Payment Service (Phase 3 target: PAYMENT-SERVICE)
@@ -339,6 +342,72 @@ curl -X POST http://localhost:8081/api/users \
 > the `{id}`-based endpoints. Passwords are stored as BCrypt hashes and never
 > returned. `POST /api/users/login` returns `{"token": null, "user": {...}}` —
 > `token` is reserved for a future JWT/security layer.
+
+## Running the Vehicle Service
+
+Build first (see above), start the Eureka Server, Config Server and API Gateway
+(previous sections), then run one of:
+
+```bash
+# Option A - from the project root, using the Maven wrapper
+mvnw.cmd -pl vehicle-service spring-boot:run
+
+# Option B - run the built executable jar (after `mvnw.cmd clean install`)
+java -jar vehicle-service/target/vehicle-service-0.0.1-SNAPSHOT.jar
+
+# Option C - from an IDE
+# Open the project, then run com.smartparkingmanagementsystem.vehicle.VehicleServiceApplication
+```
+
+The service reads its PostgreSQL connection from environment variables
+(`DB_HOST`, `DB_PORT`, `VEHICLE_DB_NAME`, `VEHICLE_DB_USERNAME`,
+`VEHICLE_DB_PASSWORD`) and registers with Eureka as `VEHICLE-SERVICE` on port
+`8082`. See `docs/database-setup.md` for the PostgreSQL provisioning steps.
+
+On a successful start you will see:
+
+```
+Tomcat started on port 8082 (http) with context path '/'
+Started VehicleServiceApplication ...
+```
+
+### Endpoints
+
+| Method | Path                          | Description                     |
+|--------|-------------------------------|---------------------------------|
+| POST   | `/api/vehicles`               | Register a vehicle              |
+| GET    | `/api/vehicles/{id}`          | Get a vehicle                   |
+| GET    | `/api/vehicles/user/{userId}` | List a user's vehicles          |
+| PUT    | `/api/vehicles/{id}`          | Update a vehicle                |
+| DELETE | `/api/vehicles/{id}`          | Delete a vehicle (204)          |
+| POST   | `/api/vehicles/{id}/entry`    | Simulate entry (→ `INSIDE`)     |
+| POST   | `/api/vehicles/{id}/exit`     | Simulate exit (→ `OUTSIDE`)     |
+
+Vehicle types: `CAR`, `SUV`, `VAN`, `TRUCK`, `MOTORCYCLE`, `BUS`. Status:
+`OUTSIDE` / `INSIDE`. Errors: 400 invalid input, 404 not found, 409 duplicate
+number or invalid entry/exit transition. Full request/response samples are in
+`vehicle-service/README.md`.
+
+### Verifying
+
+| Check                            | URL / Command                                        |
+|----------------------------------|------------------------------------------------------|
+| Vehicle Service health (actuator) | http://localhost:8082/actuator/health               |
+| Register a vehicle (direct)      | `curl -X POST http://localhost:8082/api/vehicles -H "Content-Type: application/json" -d "{\"userId\":1,\"vehicleNumber\":\"ABC-1234\",\"vehicleType\":\"CAR\",\"brand\":\"Toyota\",\"model\":\"Corolla\"}"` |
+| Register via API Gateway         | Same POST but on `http://localhost:8080/api/vehicles` |
+| Eureka registry (VEHICLE-SERVICE)| http://localhost:8761/eureka/apps                    |
+
+### Example entry/exit flow
+
+```bash
+curl -X POST http://localhost:8082/api/vehicles/1/entry   # → "status": "INSIDE", entryTime set
+curl -X POST http://localhost:8082/api/vehicles/1/exit    # → "status": "OUTSIDE", exitTime set
+curl -X POST http://localhost:8082/api/vehicles/1/exit    # → 409 (already outside)
+```
+
+The status is a state machine: entry on an `INSIDE` vehicle and exit on an
+`OUTSIDE` vehicle are rejected with `409 Conflict`; entry/exit on an unknown id
+returns `404`.
 
 ## Configuration
 

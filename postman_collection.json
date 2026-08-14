@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Smart Parking Management System (SPMS)",
-    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Phase 2 adds Config Server configuration endpoints and the API Gateway (routing + gateway actuator). Phase 3 adds the User Service (registration, login, profiles, booking-history placeholder) - both direct (8081) and via the API Gateway (8080). Endpoints for Vehicle, Parking and Payment services will be added as they are implemented.",
+    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Phase 2 adds Config Server configuration endpoints and the API Gateway (routing + gateway actuator). Phase 3 adds the User Service (registration, login, profiles, booking-history placeholder) - both direct (8081) and via the API Gateway (8080). Phase 3 also adds the Vehicle Service (registration, update, list, delete, simulated entry/exit) - both direct (8082) and via the API Gateway (8080). Endpoints for Parking and Payment services will be added as they are implemented.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -624,6 +624,317 @@
                 "users",
                 "1",
                 "bookings"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vehicle Service",
+      "item": [
+        {
+          "name": "Register a vehicle (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"ABC-1234\",\n  \"vehicleType\": \"CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register - duplicate number (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"ABC-1234\",\n  \"vehicleType\": \"CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register - invalid input (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"\",\n  \"vehicleType\": \"CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register via API Gateway (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"GWH-0001\",\n  \"vehicleType\": \"SUV\",\n  \"brand\": \"Honda\",\n  \"model\": \"CR-V\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/vehicles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "vehicles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get vehicle by id (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get vehicle - not found (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles/999",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles",
+                "999"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List user vehicles (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles/user/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles",
+                "user",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update vehicle (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleNumber\": \"ABC-1234\",\n  \"vehicleType\": \"SEDAN-CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete vehicle (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles/2",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles",
+                "2"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Entry (200, -> INSIDE)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles/1/entry",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles",
+                "1",
+                "entry"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Double entry (409)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles/1/entry",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles",
+                "1",
+                "entry"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Exit (200, -> OUTSIDE)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/api/vehicles/1/exit",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "vehicles",
+                "1",
+                "exit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Entry via API Gateway (200)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/api/vehicles/1/entry",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "vehicles",
+                "1",
+                "entry"
               ]
             }
           }

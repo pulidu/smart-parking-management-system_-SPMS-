@@ -1,0 +1,27 @@
+# ---------------------------------------------------------------------------
+# vehicle-service - local bootstrap configuration
+# ---------------------------------------------------------------------------
+# The service keeps only what it needs to boot and locate its centralized
+# configuration. The datasource (PostgreSQL), JPA settings, server port, Eureka
+# registration and management endpoints come from the Config Server
+# (config/vehicle-service.yml merged with config/application.yml).
+#
+# Database credentials are supplied through environment variables at runtime
+# (DB_HOST, DB_PORT, VEHICLE_DB_NAME, VEHICLE_DB_USERNAME, VEHICLE_DB_PASSWORD)
+# and are never committed to source control.
+
+spring:
+  application:
+    name: vehicle-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+
+server:
+  port: ${VEHICLE_SERVICE_PORT:8082}
+
+# Expose health (used by the gateway / Eureka).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
