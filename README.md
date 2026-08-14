@@ -1,53 +1,81 @@
-# Smart Parking Management System (SPMS)
+# Smart Parking Management System
 
-Backend-only, microservice-based application that manages parking operations end to end:
-users, their vehicles, parking spaces, parking sessions and payments.
+A backend-only, microservice-based platform that manages parking operations end to
+end: users, their vehicles, parking spaces, reservations and payments. All
+interaction happens through REST APIs exposed by a single API Gateway.
 
-## Tech Stack
+---
 
-| Concern          | Technology                                  |
-|------------------|---------------------------------------------|
-| Language         | Java 17 (built with JDK 17+, verified on 21) |
-| Framework        | Spring Boot 4.1.0                            |
-| Microservices    | Spring Cloud 2025.1.2 (Oakwood)              |
-| Service Registry | Spring Cloud Netflix Eureka Server 5.0.2     |
-| Config Server    | Spring Cloud Config Server 5.0.4             |
-| API Gateway      | Spring Cloud Gateway 5.0.2 (WebFlux)         |
-| User Service     | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
-| Vehicle Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
-| Parking Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
-| Payment Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation (mock payment gateway) |
-| Build tool       | Apache Maven (Maven Wrapper `mvnw` included) |
-| API style        | REST (JSON)                                  |
+## Project Overview
 
-> Spring Cloud 2025.1.2 is required — earlier trains (e.g. 2025.1.1) reject Spring
-> Boot 4.1.0 via the Spring Cloud compatibility verifier.
+The Smart Parking Management System (SPMS) is built as **seven Spring Boot / Spring
+Cloud microservices** that each own a single business domain:
 
-## Purpose
+| Module             | Domain                          |
+|--------------------|---------------------------------|
+| Eureka Server      | Service discovery / registry    |
+| Config Server      | Centralized external config     |
+| API Gateway        | Single REST entry point         |
+| User Service       | Users, authentication, profiles |
+| Vehicle Service    | Vehicles + entry/exit state     |
+| Parking Service    | Parking spaces + reservations   |
+| Payment Service    | Mock payments + receipts        |
 
-SPMS lets parking operators and drivers manage parking through REST APIs:
+Every request flows through the API Gateway (`http://localhost:8080`), which routes
+to the target service through Eureka service discovery — the backend services are
+never called directly by clients. The backend is intentionally UI-free: all features
+are exercised through REST.
 
-- Register and manage **users** (drivers, operators, admins)
-- Register and manage **vehicles** owned by users
-- Track **parking spaces** and their live availability
-- Book and run **parking sessions**
-- Process **payments** for parking sessions
+---
 
-The system is deliberately backend-only: no frontend or UI. All interaction is
-through REST endpoints exposed via an API gateway.
+## Business Problem
 
-## Microservice Architecture
+Parking operations in many real deployments are fragmented and manual:
+
+- **No central booking system** — parking spaces are allocated ad-hoc, so double
+  booking and idle capacity are common.
+- **No vehicle lifecycle tracking** — there is no record of when a vehicle enters or
+  exits a facility.
+- **No connected payment record** — drivers get no digital receipt and operators
+  cannot reconcile income against reservations.
+- **Monolithic / tightly coupled systems** — a single large application is hard to
+  change, test and scale, and teams cannot release independently.
+- **Siloed data** — users, vehicles, spaces and payments live in separate systems
+  with no coherent API.
+
+---
+
+## Proposed Solution
+
+SPMS applies a **microservice architecture** with clear bounded contexts:
+
+- Each business capability (users, vehicles, parking, payments) is an independent,
+  deployable **Spring Boot service with its own database**.
+- Services register with **Eureka** and discover each other through **load-balanced
+  service names** (`lb://USER-SERVICE`), so no hardcoded host/port is baked in.
+- A **Config Server** centralizes environment-specific configuration.
+- A **Spring Cloud Gateway** is the single public entry point that routes
+  `/api/{users,vehicles,parking,payments}/**` to the right service.
+- Inter-service validation is explicit and synchronous with timeouts: the parking
+  service verifies the user and vehicle referenced by a reservation; the payment
+  service verifies the reservation before charging.
+- Every service exposes a **consistent JSON error contract** and proper HTTP status
+  codes, with bean validation on all inputs.
+
+---
+
+## Architecture
 
 ```
                         ┌──────────────────┐
-                        │   api-gateway     │  (Spring Cloud Gateway, single entry point)
+                        │   api-gateway     │  (Spring Cloud Gateway - single entry point)
                         └────────┬─────────┘
                                  │ routes by service name (load-balanced via Eureka)
         ┌───────────────┬────────┴─────────┬───────────────┬───────────────┐
         │               │                  │               │               │
-┌───────▼──────┐ ┌──────▼───────┐ ┌────────▼───────┐ ┌─────▼────────┐ ┌─────▼────────┐
-│ user-service │ │vehicle-service│ │parking-service│ │payment-service│ │   ...        │
-└───────┬──────┘ └──────┬───────┘ └────────┬───────┘ └─────┬────────┘ └──────────────┘
+┌───────▼──────┐ ┌──────▼───────┐ ┌────────▼───────┐ ┌─────▼────────┐
+│ user-service │ │vehicle-service│ │parking-service│ │payment-service│
+└───────┬──────┘ └──────┬───────┘ └────────┬───────┘ └─────┬────────┘
         │               │                  │               │
         └───────────────┴────────┬─────────┴───────────────┘
                                  │
@@ -57,23 +85,11 @@ through REST endpoints exposed via an API gateway.
                        └───────────────────┘        └───────────────────┘
 ```
 
-| Module           | Port (planned) | Role                                                                  |
-|------------------|---------------|-----------------------------------------------------------------------|
-| `eureka-server`  | 8761          | Netflix Eureka Service Registry (discovery server)                   |
-| `config-server`  | 8888          | Spring Cloud Config Server (centralized external configuration)      |
-| `api-gateway`    | 8080          | Spring Cloud Gateway (single REST entry point, routing + load balancer)|
-| `user-service`   | 8081          | Users, authentication and profiles                                    |
-| `vehicle-service`| 8082          | Vehicle registration and management                                   |
-| `parking-service`| 8083          | Parking spaces, availability, sessions                                |
-| `payment-service`| 8084          | Payments and billing                                                  |
-
 ### Inter-service communication
 
 Services never call each other through hardcoded host/ports. Backend-to-backend
-calls go through **Eureka service discovery** using the load-balanced service
-name scheme `lb://EUREKA-SERVICE-ID` (the same mechanism the gateway uses for
-routing), so the target instance is resolved at runtime and no localhost URL is
-baked into any service:
+calls go through **Eureka service discovery** using the load-balanced service name
+scheme `lb://EUREKA-SERVICE-ID`:
 
 ```
 Gateway
@@ -93,546 +109,386 @@ Payment Service
    +--> Parking Service                 (validate reservation exists)
 ```
 
-- **Parking Service → User Service**: before creating a reservation, the
-  referenced user must exist (`GET /api/users/{id}`). Unknown user → `404`,
-  User Service unreachable → `503`.
-- **Parking Service → Vehicle Service**: the referenced vehicle must exist
-  *and* belong to the requesting user (`GET /api/vehicles/{id}`). Unknown
-  vehicle → `404`, vehicle owned by someone else → `409`, Vehicle Service
+- **Parking Service → User Service**: before creating a reservation, the referenced
+  user must exist (`GET /api/users/{id}`). Unknown user → `404`, User Service
   unreachable → `503`.
-- **Payment Service → Parking Service**: before recording a payment, the
-  reservation must exist (`GET /api/parking/reservations/{id}`). Unknown
-  reservation → `404`, Parking Service unreachable → `503`.
+- **Parking Service → Vehicle Service**: the referenced vehicle must exist *and*
+  belong to the requesting user (`GET /api/vehicles/{id}`). Unknown vehicle → `404`,
+  owned by someone else → `409`, Vehicle Service unreachable → `503`.
+- **Payment Service → Parking Service**: before recording a payment, the reservation
+  must exist (`GET /api/parking/reservations/{id}`). Unknown reservation → `404`,
+  Parking Service unreachable → `503`.
 
-These calls are synchronous REST with explicit connect/read timeouts (default
-3s/5s, configurable via `*.client.connect-timeout-ms` / `*.client.read-timeout-ms`)
-so a slow or down upstream cannot hang a request. The dependency graph is acyclic
-(Payment → Parking and Parking → User/Vehicle; Parking never calls back into
-Payment), and each service only exposes its public DTOs to the others. Clean
-client-side DTOs (`VehicleInfoDto`, `UserInfoDto`) keep the caller decoupled from
-the callee's internal entities. Hermetic tests stub the inter-service clients
-(`@MockitoBean`), so every module still builds and tests offline.
+Calls are synchronous with explicit connect/read timeouts (default 3s/5s,
+configurable via `*.client.connect-timeout-ms` / `*.client.read-timeout-ms`). The
+dependency graph is acyclic, and services only exchange clean client DTOs.
 
-### Project layout
+---
 
-```
-smart-parking-management-system/
-├── pom.xml                 # Multi-module aggregator / parent POM
-├── eureka-server/          # ✅ implemented (Phase 1)
-├── config-server/          # ✅ implemented (Phase 2)
-├── api-gateway/            # ✅ implemented (Phase 2)
-├── user-service/           # ✅ implemented (Phase 3)
-├── vehicle-service/        # ✅ implemented (Phase 3)
-├── parking-service/        # ✅ implemented (Phase 4)
-├── payment-service/        # ✅ implemented (Phase 5)
-├── docs/                   # architecture / API / database documentation
-├── postman_collection.json # Postman collection for the REST APIs
-├── mvnw / mvnw.cmd         # Maven Wrapper (Maven 3.9.16)
-└── README.md
-```
+## Technologies
 
-## Current Implementation Status
+| Concern          | Technology                                      |
+|------------------|-------------------------------------------------|
+| Language         | Java 21                                         |
+| Framework        | Spring Boot 4.1.0                               |
+| Microservices    | Spring Cloud 2025.1.2 (Oakwood)                 |
+| Service Registry | Spring Cloud Netflix Eureka Server 5.0.2        |
+| Config Server    | Spring Cloud Config Server 5.0.4                |
+| API Gateway      | Spring Cloud Gateway 5.0.2 (WebFlux)            |
+| Persistence      | Spring Data JPA + Hibernate (+ PostgreSQL)      |
+| Validation       | Bean Validation (Hibernate Validator)           |
+| Build tool       | Apache Maven 3.9.16 (Maven Wrapper `mvnw`)      |
+| API style        | REST (JSON), consistent JSON error contract     |
+| Tests            | JUnit 5, MockMvc, Mockito (hermetic, offline)   |
 
-| Component         | Status                                       |
-|-------------------|----------------------------------------------|
-| Multi-module POM  | ✅ Done                                      |
-| `eureka-server`   | ✅ Done — standalone Eureka registry, port 8761 |
-| `config-server`   | ✅ Done — native-repo Config Server, port 8888 |
-| `api-gateway`     | ✅ Done — Spring Cloud Gateway, port 8080   |
-| `user-service`    | ✅ Done — users, auth, profiles, port 8081  |
-| `vehicle-service` | ✅ Done — vehicles + entry/exit, port 8082 |
-| `parking-service` | ✅ Done — spaces, search, reservations, port 8083 |
-| `payment-service` | ✅ Done — mock payments, receipts, port 8084 |
+---
 
-## Building
+## Microservices
 
-Requires a JDK 17+ (Java 21 works). Maven itself is not required — the Maven
-Wrapper downloads Maven 3.9.16 on first use.
+### Eureka Server
+Standalone Netflix Eureka service registry on port `8761`. Every other service
+registers here and the gateway resolves `lb://` targets from the registry. The
+server itself does not self-register (`register-with-eureka=false`,
+`fetch-registry=false`). Dashboard: `http://localhost:8761/`.
 
-```bash
-# Windows
-mvnw.cmd clean install
+### Config Server
+Spring Cloud Config Server on port `8888` using a **native repository**
+(`classpath:/config`). It serves one YAML file per service plus a shared
+`application.yml` (Eureka defaults). Sensitive values (database passwords) are read
+from environment variables — nothing is committed. Example:
+`http://localhost:8888/user-service/default`.
 
-# Linux / macOS
-./mvnw clean install
-```
+### API Gateway
+Spring Cloud Gateway (WebFlux) on port `8080`. The single public entry point. Routes
+are defined centrally in `config-server/src/main/resources/config/api-gateway.yml`
+and are all `lb://` based, so no backend host/port is hardcoded:
 
-This compiles every implemented module and runs its tests (Eureka context-load,
-Config Server endpoint, API Gateway routing, User Service and Vehicle Service
-integration tests).
+| Route                | Target (Eureka ID) |
+|----------------------|--------------------|
+| `/api/users/**`      | `lb://USER-SERVICE` |
+| `/api/vehicles/**`   | `lb://VEHICLE-SERVICE` |
+| `/api/parking/**`    | `lb://PARKING-SERVICE` |
+| `/api/payments/**`   | `lb://PAYMENT-SERVICE` |
 
-## Running the Eureka Server
+### User Service
+Port `8081`, Eureka ID `USER-SERVICE`. Manages users (drivers, owners, admins),
+registration, login and profiles. Passwords are stored as **BCrypt hashes** and never
+returned. Email is lowercased and unique. Owns the `users` table.
 
-Build first (see above), then run one of:
+### Vehicle Service
+Port `8082`, Eureka ID `VEHICLE-SERVICE`. Manages vehicles per user with a simulated
+**entry/exit state machine** (`OUTSIDE` ↔ `INSIDE`). Owns the `vehicles` table;
+vehicle numbers are globally unique.
 
-```bash
-# Option A - from the project root, using the Maven wrapper
-mvnw.cmd -pl eureka-server spring-boot:run
+### Parking Service
+Port `8083`, Eureka ID `PARKING-SERVICE`. Manages parking spaces (CRUD + search by
+city/zone/availability + manual IoT-style status updates) and reservations (create,
+get, list, cancel, release). Before creating a reservation it validates the
+referenced user and vehicle via the User / Vehicle Services. Owns the
+`parking_spaces` and `reservations` tables. The reservation flow is transactional and
+locks the space row (`PESSIMISTIC_WRITE`) so concurrent attempts serialize.
 
-# Option B - run the built executable jar (after `mvnw.cmd clean install`)
-java -jar eureka-server/target/eureka-server-0.0.1-SNAPSHOT.jar
+### Payment Service
+Port `8084`, Eureka ID `PAYMENT-SERVICE`. A **mock payment gateway** — no real
+provider integration. It validates mock card data (format + Luhn), verifies the
+reservation exists via the Parking Service, guards against duplicate payments and
+settles deterministically (`CARD` fails only for the configured mock-decline card
+`4000000000000002`; `CASH`/`MOCK_WALLET` always succeed). Only the last four digits
+of the card are stored. Owns the `payments` table.
 
-# Option C - from an IDE
-# Open the project, then run com.smartparkingmanagementsystem.eureka.EurekaServerApplication
-```
+---
 
-On a successful start you will see:
+## Service Ports
 
-```
-Tomcat started on port 8761 (http) with context path '/'
-Started EurekaServerApplication ...
-```
+| Service          | Eureka ID       | Port  | Purpose                                  |
+|------------------|-----------------|-------|------------------------------------------|
+| Eureka Server    | — (standalone)  | 8761  | Service registry / dashboard             |
+| Config Server    | `CONFIG-SERVER` | 8888  | Centralized configuration                |
+| API Gateway      | `API-GATEWAY`   | 8080  | Single REST entry point                  |
+| User Service     | `USER-SERVICE`  | 8081  | Users, auth, profiles                    |
+| Vehicle Service  | `VEHICLE-SERVICE`| 8082 | Vehicles + entry/exit                    |
+| Parking Service  | `PARKING-SERVICE`| 8083 | Parking spaces + reservations            |
+| Payment Service  | `PAYMENT-SERVICE`| 8084 | Mock payments + receipts                 |
 
-### Verifying
+---
 
-| Check                     | URL / Command                                                        |
-|---------------------------|----------------------------------------------------------------------|
-| Eureka dashboard          | http://localhost:8761/                                                |
-| Health (actuator)         | http://localhost:8761/actuator/health                                 |
-| Registered applications   | http://localhost:8761/eureka/apps                                     |
+## Database Design
 
-The dashboard shows **"Instances currently registered with Eureka"** — after
-starting the Config Server this will list `CONFIG-SERVER`. The server itself is
-intentionally standalone: it neither registers itself
-(`eureka.client.register-with-eureka=false`) nor fetches the registry from a
-peer (`eureka.client.fetch-registry=false`).
+Each microservice **owns its own database** and never shares a schema with another
+service — this is what keeps the services independently deployable. Cross-service
+references are plain identifiers (no foreign keys) so the parking and payment
+services stay decoupled from the user/vehicle services.
 
-## Running the Config Server
+| Service          | Database (env var) | Tables                  | Ownership notes                                |
+|------------------|--------------------|-------------------------|------------------------------------------------|
+| User Service     | `USER_DB_NAME`     | `users`                 | email unique; password = BCrypt hash            |
+| Vehicle Service  | `VEHICLE_DB_NAME`  | `vehicles`              | vehicle_number unique                          |
+| Parking Service  | `PARKING_DB_NAME`  | `parking_spaces`, `reservations` | space_number unique per owner; reservations reference user/vehicle ids |
+| Payment Service  | `PAYMENT_DB_NAME`  | `payments`              | transaction_id unique; only card_last4 stored  |
 
-Build first (see above), start the Eureka Server (see previous section), then
-run one of:
+Connection settings come from environment variables
+(`DB_HOST`, `DB_PORT`, `<SERVICE>_DB_NAME`, `<SERVICE>_DB_USERNAME`,
+`<SERVICE>_DB_PASSWORD`) — **no credentials are committed**. Schema is managed by
+Hibernate (`ddl-auto=update`); production should migrate to Flyway/Liquibase. The
+full DDL and provisioning steps are in
+[`docs/database-setup.md`](docs/database-setup.md).
 
-```bash
-# Option A - from the project root, using the Maven wrapper
-mvnw.cmd -pl config-server spring-boot:run
+---
 
-# Option B - run the built executable jar (after `mvnw.cmd clean install`)
-java -jar config-server/target/config-server-0.0.1-SNAPSHOT.jar
+## API Endpoints
 
-# Option C - from an IDE
-# Open the project, then run com.smartparkingmanagementsystem.config.ConfigServerApplication
-```
+All endpoints are accessed through the gateway (`http://localhost:8080`).
 
-On a successful start you will see:
+### User Service
+| Method | Path                    | Description                       |
+|--------|-------------------------|-----------------------------------|
+| POST   | `/api/users`            | Register a user                   |
+| POST   | `/api/users/login`      | Authenticate (email + password)   |
+| GET    | `/api/users/{id}`       | Get a user profile                |
+| PUT    | `/api/users/{id}`       | Update a user profile             |
+| GET    | `/api/users/{id}/bookings` | Booking history (placeholder)  |
 
-```
-Tomcat started on port 8888 (http) with context path '/'
-Started ConfigServerApplication ...
-```
+### Vehicle Service
+| Method | Path                          | Description                    |
+|--------|-------------------------------|--------------------------------|
+| POST   | `/api/vehicles`               | Register a vehicle             |
+| GET    | `/api/vehicles/{id}`          | Get a vehicle                  |
+| GET    | `/api/vehicles/user/{userId}` | List a user's vehicles         |
+| PUT    | `/api/vehicles/{id}`          | Update a vehicle               |
+| DELETE | `/api/vehicles/{id}`          | Delete a vehicle (204)         |
+| POST   | `/api/vehicles/{id}/entry`    | Simulate entry (→ `INSIDE`)    |
+| POST   | `/api/vehicles/{id}/exit`     | Simulate exit (→ `OUTSIDE`)    |
 
-### Verifying
+### Parking Service — Spaces
+| Method | Path                                  | Description                  |
+|--------|---------------------------------------|------------------------------|
+| POST   | `/api/parking/spaces`                 | Create a parking space       |
+| GET    | `/api/parking/spaces`                 | Search/filter spaces         |
+| GET    | `/api/parking/spaces?city={city}`     | Search by city               |
+| GET    | `/api/parking/spaces?zone={zone}`     | Search by zone               |
+| GET    | `/api/parking/spaces?available=true`  | Search available spaces      |
+| GET    | `/api/parking/spaces/{id}`            | Get a space                  |
+| PUT    | `/api/parking/spaces/{id}`            | Update a space               |
+| DELETE | `/api/parking/spaces/{id}`            | Delete a space (204)         |
+| PUT    | `/api/parking/spaces/{id}/status`     | Manual/IoT status update     |
 
-| Check                           | URL / Command                                              |
-|---------------------------------|------------------------------------------------------------|
-| Config Server health (actuator) | http://localhost:8888/actuator/health                      |
-| Config for api-gateway          | http://localhost:8888/api-gateway/default                  |
-| Config for user-service         | http://localhost:8888/user-service/default                 |
-| Config for vehicle-service      | http://localhost:8888/vehicle-service/default              |
-| Config for parking-service      | http://localhost:8888/parking-service/default              |
-| Config for payment-service      | http://localhost:8888/payment-service/default              |
-| Shared config (all services)    | http://localhost:8888/application/default                  |
-| Eureka registry (CONFIG-SERVER) | http://localhost:8761/eureka/apps                          |
+### Parking Service — Reservations
+| Method | Path                                        | Description                  |
+|--------|---------------------------------------------|------------------------------|
+| POST   | `/api/parking/reservations`                 | Reserve a space              |
+| GET    | `/api/parking/reservations/{id}`            | Get a reservation            |
+| GET    | `/api/parking/reservations/user/{userId}`   | List a user's reservations   |
+| POST   | `/api/parking/reservations/{id}/cancel`     | Cancel a reservation         |
+| POST   | `/api/parking/reservations/{id}/release`    | Release a reservation        |
 
-The Config Server uses a **native repository** (`classpath:/config`) served on
-port 8888 and registers with Eureka as `CONFIG-SERVER`. The default `Accept`
-header returns YAML; `Accept: application/json` returns JSON. Each response
-contains the service-specific property source plus the shared `application.yml`
-source. Full details are in `config-server/README.md`.
+### Payment Service
+| Method | Path                                        | Description                  |
+|--------|---------------------------------------------|------------------------------|
+| POST   | `/api/payments`                             | Process a mock payment       |
+| GET    | `/api/payments/{id}`                        | Get a payment                |
+| GET    | `/api/payments/reservation/{reservationId}` | Payments for a reservation   |
+| GET    | `/api/payments/user/{userId}`               | Payments for a user          |
+| GET    | `/api/payments/{id}/receipt`                | Get the digital receipt      |
 
-## Running the API Gateway
+---
 
-Build first (see above), start the Eureka Server and Config Server (previous
-sections), then run one of:
+## Running the Project
 
-```bash
-# Option A - from the project root, using the Maven wrapper
-mvnw.cmd -pl api-gateway spring-boot:run
+**Prerequisites**
 
-# Option B - run the built executable jar (after `mvnw.cmd clean install`)
-java -jar api-gateway/target/api-gateway-0.0.1-SNAPSHOT.jar
+- JDK 21 installed and on the `PATH`.
+- PostgreSQL running (or run with the in-memory H2 fallback described below).
+- No Maven install needed — the Maven Wrapper (`mvnw.cmd` on Windows,
+  `./mvnw` on Linux/macOS) downloads Maven 3.9.16 on first use.
 
-# Option C - from an IDE
-# Open the project, then run com.smartparkingmanagementsystem.gateway.ApiGatewayApplication
-```
-
-On a successful start you will see:
-
-```
-Netty started on port 8080 (http)
-Started ApiGatewayApplication ...
-```
-
-The gateway pulls its configuration (including the route table) from the Config
-Server, registers with Eureka as `API-GATEWAY` and fetches the registry to
-resolve backend services. If the Config Server is unavailable it still starts
-(with a warning) but without routes.
-
-### Route table
-
-| Route (request path) | Target (Eureka service ID) |
-|----------------------|----------------------------|
-| `/api/users/**`      | `lb://USER-SERVICE`        |
-| `/api/vehicles/**`   | `lb://VEHICLE-SERVICE`     |
-| `/api/parking/**`    | `lb://PARKING-SERVICE`     |
-| `/api/payments/**`   | `lb://PAYMENT-SERVICE`     |
-
-The `lb://` scheme tells the gateway to resolve the service name through
-**Eureka service discovery** and load-balance across its registered instances —
-no backend host/port is hard-coded. Routes are defined centrally in
-`config-server/src/main/resources/config/api-gateway.yml`.
-
-### Verifying
-
-| Check                        | URL / Command                                                    |
-|------------------------------|------------------------------------------------------------------|
-| Gateway health (actuator)    | http://localhost:8080/actuator/health                            |
-| Active routes (actuator)     | http://localhost:8080/actuator/gateway/routes                    |
-| Eureka registry (API-GATEWAY)| http://localhost:8761/eureka/apps                                |
-
-### Example requests
-
-All backend services are implemented, so `/api/users`, `/api/vehicles`,
-`/api/parking` and `/api/payments` requests are routed end-to-end. Full details
-are in `api-gateway/README.md`.
+**Build everything**
 
 ```bash
-# User Service (implemented - routes to USER-SERVICE)
-curl -i http://localhost:8080/api/users
-
-# Vehicle Service (implemented - routes to VEHICLE-SERVICE)
-curl -i http://localhost:8080/api/vehicles/1
-
-# Parking Service (implemented - routes to PARKING-SERVICE)
-curl -i http://localhost:8080/api/parking/spaces
-
-# Payment Service (implemented - routes to PAYMENT-SERVICE)
-curl -i http://localhost:8080/api/payments/1
-
-# Unknown path - routed nowhere, gateway returns 404
-curl -i http://localhost:8080/nope
+mvnw.cmd clean install     # Windows
+./mvnw clean install       # Linux / macOS
 ```
 
-## Running the User Service
+**Startup order (required)**
 
-Build first (see above), start the Eureka Server, Config Server and API Gateway
-(previous sections), then run one of:
+Start each service in its own terminal window, in this exact order:
 
-```bash
-# Option A - from the project root, using the Maven wrapper
-mvnw.cmd -pl user-service spring-boot:run
+| Step | Service        | Command                                       | Port |
+|------|----------------|-----------------------------------------------|------|
+| 1    | Eureka Server  | `mvnw.cmd -pl eureka-server spring-boot:run`  | 8761 |
+| 2    | Config Server  | `mvnw.cmd -pl config-server spring-boot:run`  | 8888 |
+| 3    | User Service   | `mvnw.cmd -pl user-service spring-boot:run`   | 8081 |
+| 4    | Vehicle Service| `mvnw.cmd -pl vehicle-service spring-boot:run`| 8082 |
+| 5    | Parking Service| `mvnw.cmd -pl parking-service spring-boot:run`| 8083 |
+| 6    | Payment Service| `mvnw.cmd -pl payment-service spring-boot:run`| 8084 |
+| 7    | API Gateway    | `mvnw.cmd -pl api-gateway spring-boot:run`    | 8080 |
 
-# Option B - run the built executable jar (after `mvnw.cmd clean install`)
-java -jar user-service/target/user-service-0.0.1-SNAPSHOT.jar
+**Database**: set the `DB_HOST`, `DB_PORT` and per-service
+`<SERVICE>_DB_NAME/_USERNAME/_PASSWORD` environment variables (see
+[`docs/database-setup.md`](docs/database-setup.md)) **before** starting the
+services. If you do not have PostgreSQL, you can start each service with in-memory
+H2 instead:
 
-# Option C - from an IDE
-# Open the project, then run com.smartparkingmanagementsystem.user.UserServiceApplication
+```powershell
+mvnw.cmd -pl user-service spring-boot:run `
+  --spring.datasource.url=jdbc:h2:mem:appdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1 `
+  --spring.datasource.driver-class-name=org.h2.Driver `
+  --spring.datasource.username=sa --spring.datasource.password= `
+  --spring.jpa.hibernate.ddl-auto=create-drop
 ```
 
-The service reads its PostgreSQL connection from environment variables
-(`DB_HOST`, `DB_PORT`, `USER_DB_NAME`, `USER_DB_USERNAME`, `USER_DB_PASSWORD`)
-and registers with Eureka as `USER-SERVICE` on port `8081`. See
-`docs/database-setup.md` for the PostgreSQL provisioning steps.
+> Repeat the `--spring.datasource.*` overrides for the vehicle, parking and payment
+> services. H2 is in-memory — restarting a service wipes its data. The gateway loads
+> its routes from the Config Server at startup, so the Config Server (step 2) must be
+> running before the gateway starts.
 
-On a successful start you will see:
+**Verify**
 
-```
-Tomcat started on port 8081 (http) with context path '/'
-Started UserServiceApplication ...
-```
+| Check                     | URL                                              |
+|---------------------------|--------------------------------------------------|
+| Eureka dashboard          | `http://localhost:8761/`                         |
+| Eureka registry           | `http://localhost:8761/eureka/apps`              |
+| Config for a service      | `http://localhost:8888/{service}/default`        |
+| Gateway health            | `http://localhost:8080/actuator/health`          |
+| Gateway routes            | `http://localhost:8080/actuator/gateway/routes`  |
+| Service health            | `http://localhost:808{1..4}/actuator/health`     |
 
-### Endpoints
+---
 
-| Method | Path                     | Description                     |
-|--------|--------------------------|---------------------------------|
-| POST   | `/api/users`             | Register a user                 |
-| POST   | `/api/users/login`       | Authenticate (email + password) |
-| GET    | `/api/users/{id}`        | View a user profile             |
-| PUT    | `/api/users/{id}`        | Update a user profile           |
-| GET    | `/api/users/{id}/bookings` | Booking history (placeholder) |
+## Postman Testing
 
-Roles: `DRIVER`, `OWNER`, `ADMIN`. Errors: 400 invalid input, 401 invalid login,
-404 user not found, 409 duplicate email. Full request/response samples are in
-`user-service/README.md`.
+A complete, importable Postman collection is included:
+[`postman_collection.json`](./postman_collection.json).
 
-### Verifying
+- Import the file in Postman (**Import → Upload Files**).
+- All business requests use the `{{baseUrl}}` collection variable
+  (default `http://localhost:8080` — the API Gateway) and must be run **in order**
+  so earlier requests create the users/vehicles/spaces/reservations the later ones
+  reference (ids start at 1).
+- Folders: **User Service**, **Vehicle Service**, **Parking Service**,
+  **Reservation**, **Payment Service**, **Error Cases**, and an
+  **Infrastructure** folder with Eureka/Config/Gateway health checks.
+- The **Error Cases** folder demonstrates the expected 400/401/404/409 responses.
 
-| Check                          | URL / Command                                        |
-|--------------------------------|------------------------------------------------------|
-| User Service health (actuator) | http://localhost:8081/actuator/health                |
-| Register a user (direct)       | `curl -X POST http://localhost:8081/api/users -H "Content-Type: application/json" -d "{\"name\":\"Alice\",\"email\":\"alice@example.com\",\"password\":\"secret123\",\"role\":\"DRIVER\"}"` |
-| Register via API Gateway       | Same POST but on `http://localhost:8080/api/users`   |
-| Eureka registry (USER-SERVICE) | http://localhost:8761/eureka/apps                    |
+---
 
-### Example request/response
+## Eureka Dashboard
 
-```bash
-curl -X POST http://localhost:8081/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Alice Driver","email":"alice@example.com","password":"secret123","phone":"+1-555-0100","role":"DRIVER"}'
-```
+After all seven services are running, open
+[http://localhost:8761/](http://localhost:8761/) — the dashboard shows the
+registered application instances (`API-GATEWAY`, `CONFIG-SERVER`, `USER-SERVICE`,
+`VEHICLE-SERVICE`, `PARKING-SERVICE`, `PAYMENT-SERVICE`; the Eureka server itself
+does not self-register).
+
+![Eureka Dashboard](./docs/screenshots/eureka_dashboard.png)
+
+> The screenshot file is not committed to the repository — take it yourself after
+> starting all services (see the steps below) and save it to
+> `docs/screenshots/eureka_dashboard.png`.
+
+**How to take the real screenshot**
+
+1. Start all seven services in the order listed above and wait for each to register
+   (watch the Eureka dashboard or the logs).
+2. Open `http://localhost:8761/` in a browser (Chrome/Edge).
+3. Wait for the **"Instances currently registered with Eureka"** table to list the
+   six applications with **UP** status (green).
+4. Press **Win + Shift + S** (Windows Snipping Tool), drag a rectangle over the
+   dashboard, and save the capture.
+5. Save it as `docs/screenshots/eureka_dashboard.png` (or the same filename from the
+   "Eureka Dashboard" request in the Postman **Infrastructure** folder — open the URL
+   and screenshot the result).
+
+---
+
+## Error Handling
+
+Every service returns errors as a consistent JSON document (`ApiError`):
 
 ```json
 {
-  "id": 1,
-  "name": "Alice Driver",
-  "email": "alice@example.com",
-  "phone": "+1-555-0100",
-  "role": "DRIVER",
-  "createdAt": "2026-08-14T14:12:37.111561Z",
-  "updatedAt": "2026-08-14T14:12:37.111561Z"
+  "timestamp": "2026-08-15T10:00:00Z",
+  "status": 404,
+  "error": "Not Found",
+  "message": "User not found with id: 999",
+  "path": "/api/users/999"
 }
 ```
 
-> Tip: the response of `POST /api/users` is the profile; capture `id` from it for
-> the `{id}`-based endpoints. Passwords are stored as BCrypt hashes and never
-> returned. `POST /api/users/login` returns `{"token": null, "user": {...}}` —
-> `token` is reserved for a future JWT/security layer.
+Validation failures additionally include `fieldErrors`:
 
-## Running the Vehicle Service
-
-Build first (see above), start the Eureka Server, Config Server and API Gateway
-(previous sections), then run one of:
-
-```bash
-# Option A - from the project root, using the Maven wrapper
-mvnw.cmd -pl vehicle-service spring-boot:run
-
-# Option B - run the built executable jar (after `mvnw.cmd clean install`)
-java -jar vehicle-service/target/vehicle-service-0.0.1-SNAPSHOT.jar
-
-# Option C - from an IDE
-# Open the project, then run com.smartparkingmanagementsystem.vehicle.VehicleServiceApplication
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/users",
+  "fieldErrors": { "email": "email must be a valid email address" }
+}
 ```
 
-The service reads its PostgreSQL connection from environment variables
-(`DB_HOST`, `DB_PORT`, `VEHICLE_DB_NAME`, `VEHICLE_DB_USERNAME`,
-`VEHICLE_DB_PASSWORD`) and registers with Eureka as `VEHICLE-SERVICE` on port
-`8082`. See `docs/database-setup.md` for the PostgreSQL provisioning steps.
+| Status | Meaning                                                        |
+|--------|----------------------------------------------------------------|
+| 400    | Invalid input (validation, malformed JSON, bad enum, invalid reservation time or card data) |
+| 401    | Invalid login credentials (User Service)                       |
+| 404    | Resource not found (user/vehicle/space/reservation/payment), or a referenced resource is missing |
+| 409    | Duplicate record (email/vehicle number/space number) or invalid state transition (double entry/exit, double reservation/payment, space not available) |
+| 503    | An upstream service is unreachable during inter-service validation |
+| 500    | Unexpected internal error (fallback)                           |
 
-On a successful start you will see:
+Duplicate and state-transition rules are enforced twice: an explicit service-layer
+check (friendly `409` message) plus a database constraint / pessimistic lock as the
+race-condition safety net.
 
-```
-Tomcat started on port 8082 (http) with context path '/'
-Started VehicleServiceApplication ...
-```
+---
 
-### Endpoints
-
-| Method | Path                          | Description                     |
-|--------|-------------------------------|---------------------------------|
-| POST   | `/api/vehicles`               | Register a vehicle              |
-| GET    | `/api/vehicles/{id}`          | Get a vehicle                   |
-| GET    | `/api/vehicles/user/{userId}` | List a user's vehicles          |
-| PUT    | `/api/vehicles/{id}`          | Update a vehicle                |
-| DELETE | `/api/vehicles/{id}`          | Delete a vehicle (204)          |
-| POST   | `/api/vehicles/{id}/entry`    | Simulate entry (→ `INSIDE`)     |
-| POST   | `/api/vehicles/{id}/exit`     | Simulate exit (→ `OUTSIDE`)     |
-
-Vehicle types: `CAR`, `SUV`, `VAN`, `TRUCK`, `MOTORCYCLE`, `BUS`. Status:
-`OUTSIDE` / `INSIDE`. Errors: 400 invalid input, 404 not found, 409 duplicate
-number or invalid entry/exit transition. Full request/response samples are in
-`vehicle-service/README.md`.
-
-### Verifying
-
-| Check                            | URL / Command                                        |
-|----------------------------------|------------------------------------------------------|
-| Vehicle Service health (actuator) | http://localhost:8082/actuator/health               |
-| Register a vehicle (direct)      | `curl -X POST http://localhost:8082/api/vehicles -H "Content-Type: application/json" -d "{\"userId\":1,\"vehicleNumber\":\"ABC-1234\",\"vehicleType\":\"CAR\",\"brand\":\"Toyota\",\"model\":\"Corolla\"}"` |
-| Register via API Gateway         | Same POST but on `http://localhost:8080/api/vehicles` |
-| Eureka registry (VEHICLE-SERVICE)| http://localhost:8761/eureka/apps                    |
-
-### Example entry/exit flow
-
-```bash
-curl -X POST http://localhost:8082/api/vehicles/1/entry   # → "status": "INSIDE", entryTime set
-curl -X POST http://localhost:8082/api/vehicles/1/exit    # → "status": "OUTSIDE", exitTime set
-curl -X POST http://localhost:8082/api/vehicles/1/exit    # → 409 (already outside)
-```
-
-The status is a state machine: entry on an `INSIDE` vehicle and exit on an
-`OUTSIDE` vehicle are rejected with `409 Conflict`; entry/exit on an unknown id
-returns `404`.
-
-## Running the Parking Service
-
-Build first (see above), start the Eureka Server, Config Server and API Gateway
-(previous sections), then run one of:
-
-```bash
-# Option A - from the project root, using the Maven wrapper
-mvnw.cmd -pl parking-service spring-boot:run
-
-# Option B - run the built executable jar (after `mvnw.cmd clean install`)
-java -jar parking-service/target/parking-service-0.0.1-SNAPSHOT.jar
-
-# Option C - from an IDE
-# Open the project, then run com.smartparkingmanagementsystem.parking.ParkingServiceApplication
-```
-
-The service reads its PostgreSQL connection from environment variables
-(`DB_HOST`, `DB_PORT`, `PARKING_DB_NAME`, `PARKING_DB_USERNAME`,
-`PARKING_DB_PASSWORD`) and registers with Eureka as `PARKING-SERVICE` on port
-`8083`. See `docs/database-setup.md` for the PostgreSQL provisioning steps.
-
-On a successful start you will see:
+## Business Flow
 
 ```
-Tomcat started on port 8083 (http) with context path '/'
-Started ParkingServiceApplication ...
+User
+  ↓
+Gateway            (http://localhost:8080 - single entry point)
+  ↓
+Parking            (space availability, owner, zones)
+  ↓
+Reservation        (space reserved, user + vehicle validated via discovery)
+  ↓
+Payment            (mock gateway, duplicate guard, Luhn + format checks)
+  ↓
+Receipt            (digital receipt with transaction id + payment status)
 ```
 
-### Endpoints
+Walkthrough:
 
-| Method | Path                                     | Description                    |
-|--------|------------------------------------------|--------------------------------|
-| POST   | `/api/parking/spaces`                    | Create a parking space         |
-| GET    | `/api/parking/spaces`                    | Search/filter spaces           |
-| GET    | `/api/parking/spaces/{id}`               | Get a space                    |
-| PUT    | `/api/parking/spaces/{id}`               | Update a space                 |
-| DELETE | `/api/parking/spaces/{id}`               | Delete a space (204)           |
-| PUT    | `/api/parking/spaces/{id}/status`        | Manual/IoT status update       |
-| POST   | `/api/parking/reservations`              | Reserve a space                |
-| GET    | `/api/parking/reservations/{id}`         | Get a reservation              |
-| GET    | `/api/parking/reservations/user/{userId}`| List a user's reservations     |
-| POST   | `/api/parking/reservations/{id}/cancel`  | Cancel a reservation           |
-| POST   | `/api/parking/reservations/{id}/release` | Release a reservation          |
+1. A **user** registers and logs in (User Service).
+2. The **gateway** routes every request to the owning service via Eureka.
+3. The **parking service** manages spaces; the driver searches and picks an available
+   space.
+4. A **reservation** is created — the parking service verifies (through discovery)
+   that the user and vehicle exist and that the vehicle belongs to the user, then
+   locks the space so it cannot be double-booked.
+5. A **payment** is created for the reservation — the payment service verifies the
+   reservation exists, validates the card, blocks duplicates and settles the mock
+   transaction.
+6. A **receipt** is available for every stored payment.
 
-Space status: `AVAILABLE`, `RESERVED`, `OCCUPIED`, `MAINTENANCE`. Reservation
-status: `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`. Search supports
-`?city=`, `?zone=` and `?available=true|false`. Errors: 400 invalid input,
-404 not found (space/reservation, or a referenced user/vehicle that does not
-exist), 409 duplicate/state conflict or vehicle owned by another user, 503 when
-the User/Vehicle Service is unreachable during reservation validation. Full
-request/response samples are in `parking-service/README.md`.
+---
 
-### Verifying
+## Future Improvements
 
-| Check                            | URL / Command                                        |
-|----------------------------------|------------------------------------------------------|
-| Parking Service health (actuator) | http://localhost:8083/actuator/health               |
-| Create a space (direct)          | `curl -X POST http://localhost:8083/api/parking/spaces -H "Content-Type: application/json" -d "{\"ownerId\":1,\"spaceNumber\":\"A-01\",\"location\":\"Level 1\",\"city\":\"Colombo\",\"zone\":\"Zone-A\",\"pricePerHour\":5.50}"` |
-| Create via API Gateway           | Same POST but on `http://localhost:8080/api/parking/spaces` |
-| Search available spaces          | `curl "http://localhost:8083/api/parking/spaces?city=Colombo&available=true"` |
-| Eureka registry (PARKING-SERVICE)| http://localhost:8761/eureka/apps                    |
+The current implementation is a solid, fully working backend. Natural next steps:
 
-### Example reservation flow
-
-```bash
-curl -X POST http://localhost:8083/api/parking/reservations \
-  -H "Content-Type: application/json" \
-  -d '{"userId":1,"vehicleId":1,"parkingSpaceId":1,"startTime":"2026-08-20T10:00:00Z","endTime":"2026-08-20T12:00:00Z"}'
-# → 201, reservation "PENDING", space "AVAILABLE" → "RESERVED"
-
-curl -X POST http://localhost:8083/api/parking/reservations/1/release
-# → 200, reservation "COMPLETED", space back to "AVAILABLE"
-
-curl -X POST http://localhost:8083/api/parking/reservations/1/cancel
-# → 409 (no longer active)
-```
-
-Reserving requires the space to exist (404) and be `AVAILABLE` (409), a
-`userId`/`vehicleId`/`startTime`/`endTime`, and `startTime` before `endTime`
-(400). The referenced **user must exist** (verified via `lb://USER-SERVICE`,
-404 if not) and the referenced **vehicle must exist and belong to that user**
-(verified via `lb://VEHICLE-SERVICE`, 404 if the vehicle is unknown, 409 if it
-belongs to someone else; 503 if either upstream service is unreachable). A space
-with an active reservation cannot be double-booked (409) — the reservation is
-transactional and the space row is pessimistically locked, so concurrent
-attempts serialize and only one succeeds.
-
-## Running the Payment Service
-
-Build first (see above), start the Eureka Server, Config Server, API Gateway and
-Parking Service (previous sections), then run one of:
-
-```bash
-# Option A - from the project root, using the Maven wrapper
-mvnw.cmd -pl payment-service spring-boot:run
-
-# Option B - run the built executable jar (after `mvnw.cmd clean install`)
-java -jar payment-service/target/payment-service-0.0.1-SNAPSHOT.jar
-
-# Option C - from an IDE
-# Open the project, then run com.smartparkingmanagementsystem.payment.PaymentServiceApplication
-```
-
-This is a **mock payment gateway** — no real Stripe/PayPal/Visa integration. The
-service reads its PostgreSQL connection from environment variables
-(`DB_HOST`, `DB_PORT`, `PAYMENT_DB_NAME`, `PAYMENT_DB_USERNAME`,
-`PAYMENT_DB_PASSWORD`) and registers with Eureka as `PAYMENT-SERVICE` on port
-`8084`. Before recording a payment it verifies the reservation exists by calling
-the parking service through Eureka service discovery (`lb://PARKING-SERVICE`,
-`payment-service.verify-reservation`, default `true`) — no host/port is
-hardcoded. See `docs/database-setup.md` for the PostgreSQL provisioning steps.
-
-On a successful start you will see:
-
-```
-Tomcat started on port 8084 (http) with context path '/'
-Started PaymentServiceApplication ...
-```
-
-### Endpoints
-
-| Method | Path                                        | Description                    |
-|--------|---------------------------------------------|--------------------------------|
-| POST   | `/api/payments`                             | Process a mock payment         |
-| GET    | `/api/payments/{id}`                        | Get a payment (incl. status)   |
-| GET    | `/api/payments/reservation/{reservationId}` | List a reservation's payments  |
-| GET    | `/api/payments/user/{userId}`               | List a user's payments         |
-| GET    | `/api/payments/{id}/receipt`                | Get the digital receipt        |
-
-Payment status: `PENDING`, `SUCCESS`, `FAILED`. Payment methods: `CARD`,
-`CASH`, `MOCK_WALLET`. Errors: 400 invalid card data, 404 payment/reservation
-not found, 409 duplicate payment for the same reservation, 503 parking service
-unreachable. Full request/response samples are in `payment-service/README.md`.
-
-### Verifying
-
-| Check                            | URL / Command                                        |
-|----------------------------------|------------------------------------------------------|
-| Payment Service health (actuator) | http://localhost:8084/actuator/health               |
-| Process a payment (direct)       | `curl -X POST http://localhost:8084/api/payments -H "Content-Type: application/json" -d "{\"reservationId\":1,\"userId\":1,\"amount\":500,\"paymentMethod\":\"CARD\",\"cardNumber\":\"4111111111111111\"}"` |
-| Process via API Gateway          | Same POST but on `http://localhost:8080/api/payments` |
-| Eureka registry (PAYMENT-SERVICE)| http://localhost:8761/eureka/apps                    |
-
-### Example payment flow
-
-```bash
-curl -X POST http://localhost:8084/api/payments \
-  -H "Content-Type: application/json" \
-  -d '{"reservationId":1,"userId":1,"amount":500,"paymentMethod":"CARD","cardNumber":"4111111111111111"}'
-# → 201, "status": "SUCCESS", "transactionId": "TXN-...", "maskedCardNumber": "**** **** **** 1111"
-
-curl -X POST http://localhost:8084/api/payments \
-  -H "Content-Type: application/json" \
-  -d '{"reservationId":1,"userId":1,"amount":500,"paymentMethod":"CARD","cardNumber":"4000000000000002"}'
-# → 409 (a SUCCESS payment already exists for reservation 1)
-
-curl -X POST http://localhost:8084/api/payments \
-  -H "Content-Type: application/json" \
-  -d '{"reservationId":2,"userId":1,"amount":500,"paymentMethod":"CARD","cardNumber":"4000000000000002"}'
-# → 201, "status": "FAILED" (mock decline card; retry with 4111... afterwards is allowed)
-
-curl http://localhost:8084/api/payments/1/receipt
-# → 200, receipt with receiptId/transactionId/paymentStatus
-```
-
-The mock gateway declines the configured card `4000000000000002`
-(`MOCK_FAILED_CARD`) and accepts everything else; `CASH`/`MOCK_WALLET` always
-succeed. Failed transactions are still stored for audit.
-
-## Configuration
-
-All Eureka configuration lives in `eureka-server/src/main/resources/application.properties`.
-Key settings:
-
-```properties
-server.port=8761
-spring.application.name=eureka-server
-eureka.client.register-with-eureka=false
-eureka.client.fetch-registry=false
-eureka.instance.hostname=localhost
-eureka.server.enable-self-preservation=false
-```
+- **Real IoT integration** — replace the manual `/status` updates and simulated
+  entry/exit with actual sensors (ANPR cameras, barrier controllers, occupancy
+  sensors) pushing events to the parking service.
+- **Real payment gateway** — swap the mock gateway for a real provider (Stripe,
+  PayPal) with idempotency keys, webhooks and reconciliation.
+- **JWT security** — the `login` response already reserves a `token` field; wire in
+  Spring Security + JWT and protect the gateway routes and cross-service calls.
+- **Docker** — containerize every service and orchestrate with `docker compose`
+  (or Kubernetes), replacing the manual startup order.
+- **Kafka** — make inter-service validation async (e.g. reservation-created /
+  payment-completed events) and add event sourcing for audit trails.
+- **Cloud deployment** — deploy to AWS/Azure/GCP using managed PostgreSQL, a managed
+  registry, and CI/CD pipelines.
+- **Database migrations** — replace `ddl-auto=update` with Flyway/Liquibase.
+- **API documentation** — add OpenAPI/Swagger on the gateway.

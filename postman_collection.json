@@ -1,355 +1,23 @@
 {
   "info": {
-    "name": "Smart Parking Management System (SPMS)",
-    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Phase 2 adds Config Server configuration endpoints and the API Gateway (routing + gateway actuator). Phase 3 adds the User Service (registration, login, profiles, booking-history placeholder) and the Vehicle Service (registration, update, list, delete, simulated entry/exit) - both direct (8081/8082) and via the API Gateway (8080). Phase 4 adds the Parking Service (spaces CRUD, search/filter by city/zone/availability, manual status updates, reservations with cancel/release) - both direct (8083) and via the API Gateway (8080). Phase 5 adds the Payment Service (mock payment gateway: process payments, SUCCESS/FAILED simulation, receipts, duplicate-payment guard) - both direct (8084) and via the API Gateway (8080).",
+    "name": "Smart Parking Management System",
+    "_postman_id": "spms-coursework-2026",
+    "description": "Complete REST API collection for the Smart Parking Management System (SPMS).\n\nAll business requests are routed through the API Gateway using the `{{baseUrl}}` collection variable (default http://localhost:8080) - do not call the microservices directly. The final Infrastructure folder points at Eureka (8761) and the Config Server (8888) for infrastructure testing only.\n\nFolders:\n1. User Service    - register, login, get, update\n2. Vehicle Service - create, get, list by user, update, entry, exit\n3. Parking Service - create space, get spaces, search (city/zone/available), update space, update status\n4. Reservation     - create, get, list by user, cancel, release\n5. Payment Service - create, get, reservation/user lookups, receipt\n6. Error Cases     - expected 4xx/5xx responses\n7. Infrastructure  - Eureka dashboard/registry and actuator health checks",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ],
   "item": [
-    {
-      "name": "Eureka Server",
-      "item": [
-        {
-          "name": "Eureka Dashboard",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8761/",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8761",
-              "path": [
-                ""
-              ]
-            }
-          }
-        },
-        {
-          "name": "Eureka Registry (all apps)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8761/eureka/apps",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8761",
-              "path": [
-                "eureka",
-                "apps"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Eureka Health (Actuator)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8761/actuator/health",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8761",
-              "path": [
-                "actuator",
-                "health"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Config Server",
-      "item": [
-        {
-          "name": "Config Server Health (Actuator)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8888/actuator/health",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8888",
-              "path": [
-                "actuator",
-                "health"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Config: api-gateway",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8888/api-gateway/default",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8888",
-              "path": [
-                "api-gateway",
-                "default"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Config: user-service",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8888/user-service/default",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8888",
-              "path": [
-                "user-service",
-                "default"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Config: vehicle-service",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8888/vehicle-service/default",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8888",
-              "path": [
-                "vehicle-service",
-                "default"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Config: parking-service",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8888/parking-service/default",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8888",
-              "path": [
-                "parking-service",
-                "default"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Config: payment-service",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8888/payment-service/default",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8888",
-              "path": [
-                "payment-service",
-                "default"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Config: shared application config",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8888/application/default",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8888",
-              "path": [
-                "application",
-                "default"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "API Gateway",
-      "item": [
-        {
-          "name": "Gateway Health (Actuator)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/actuator/health",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "actuator",
-                "health"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Gateway Routes (Actuator)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/actuator/gateway/routes",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "actuator",
-                "gateway",
-                "routes"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Proxy: /api/users (-> USER-SERVICE)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/api/users",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "users"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Proxy: /api/vehicles/1 (-> VEHICLE-SERVICE)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/api/vehicles/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "vehicles",
-                "1"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Proxy: /api/parking/spaces (-> PARKING-SERVICE)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/api/parking/spaces",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "parking",
-                "spaces"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Proxy: /api/payments/1 (-> PAYMENT-SERVICE)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/api/payments/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "payments",
-                "1"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Unknown path (no route -> 404)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/nope",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "nope"
-              ]
-            }
-          }
-        }
-      ]
-    },
     {
       "name": "User Service",
       "item": [
         {
-          "name": "Register a user (201)",
+          "name": "Register",
           "request": {
             "method": "POST",
             "header": [
@@ -362,106 +30,11 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"Alice Driver\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"secret123\",\n  \"phone\": \"+1-555-0100\",\n  \"role\": \"DRIVER\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8081/api/users",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users"
-              ]
-            }
+            "url": "{{baseUrl}}/api/users"
           }
         },
         {
-          "name": "Register - duplicate email (409)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Alice Again\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"secret123\",\n  \"role\": \"DRIVER\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8081/api/users",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Register - invalid input (400)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Bob\",\n  \"email\": \"not-an-email\",\n  \"password\": \"secret123\",\n  \"role\": \"DRIVER\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8081/api/users",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Register via API Gateway (201)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Gateway Bob\",\n  \"email\": \"gw@example.com\",\n  \"password\": \"secret123\",\n  \"role\": \"OWNER\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8080/api/users",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "users"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Login (200)",
+          "name": "Login",
           "request": {
             "method": "POST",
             "header": [
@@ -474,112 +47,19 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"secret123\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8081/api/users/login",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users",
-                "login"
-              ]
-            }
+            "url": "{{baseUrl}}/api/users/login"
           }
         },
         {
-          "name": "Login - wrong password (401)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"wrong-pass\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8081/api/users/login",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users",
-                "login"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get user by id (200)",
+          "name": "Get User",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8081/api/users/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users",
-                "1"
-              ]
-            }
+            "url": "{{baseUrl}}/api/users/1"
           }
         },
         {
-          "name": "Get user - not found (404)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8081/api/users/999",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users",
-                "999"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get user via API Gateway (200)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/api/users/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "users",
-                "1"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Update user profile (200)",
+          "name": "Update User",
           "request": {
             "method": "PUT",
             "header": [
@@ -592,40 +72,7 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"Alice G. Driver\",\n  \"email\": \"alice@example.com\",\n  \"phone\": \"+44-20-7946-0958\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8081/api/users/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users",
-                "1"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get bookings placeholder (200)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8081/api/users/1/bookings",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "api",
-                "users",
-                "1",
-                "bookings"
-              ]
-            }
+            "url": "{{baseUrl}}/api/users/1"
           }
         }
       ]
@@ -634,7 +81,7 @@
       "name": "Vehicle Service",
       "item": [
         {
-          "name": "Register a vehicle (201)",
+          "name": "Create Vehicle",
           "request": {
             "method": "POST",
             "header": [
@@ -647,167 +94,27 @@
               "mode": "raw",
               "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"ABC-1234\",\n  \"vehicleType\": \"CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles"
-              ]
-            }
+            "url": "{{baseUrl}}/api/vehicles"
           }
         },
         {
-          "name": "Register - duplicate number (409)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"ABC-1234\",\n  \"vehicleType\": \"CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Register - invalid input (400)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"\",\n  \"vehicleType\": \"CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Corolla\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Register via API Gateway (201)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"GWH-0001\",\n  \"vehicleType\": \"SUV\",\n  \"brand\": \"Honda\",\n  \"model\": \"CR-V\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8080/api/vehicles",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "vehicles"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get vehicle by id (200)",
+          "name": "Get Vehicle",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles",
-                "1"
-              ]
-            }
+            "url": "{{baseUrl}}/api/vehicles/1"
           }
         },
         {
-          "name": "Get vehicle - not found (404)",
+          "name": "Get User Vehicles",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles/999",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles",
-                "999"
-              ]
-            }
+            "url": "{{baseUrl}}/api/vehicles/user/1"
           }
         },
         {
-          "name": "List user vehicles (200)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles/user/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles",
-                "user",
-                "1"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Update vehicle (200)",
+          "name": "Update Vehicle",
           "request": {
             "method": "PUT",
             "header": [
@@ -818,125 +125,25 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vehicleNumber\": \"ABC-1234\",\n  \"vehicleType\": \"SEDAN-CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\"\n}"
+              "raw": "{\n  \"vehicleNumber\": \"ABC-1234\",\n  \"vehicleType\": \"SUV\",\n  \"brand\": \"Honda\",\n  \"model\": \"CR-V\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles",
-                "1"
-              ]
-            }
+            "url": "{{baseUrl}}/api/vehicles/1"
           }
         },
         {
-          "name": "Delete vehicle (204)",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles/2",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles",
-                "2"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Entry (200, -> INSIDE)",
+          "name": "Vehicle Entry",
           "request": {
             "method": "POST",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles/1/entry",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles",
-                "1",
-                "entry"
-              ]
-            }
+            "url": "{{baseUrl}}/api/vehicles/1/entry"
           }
         },
         {
-          "name": "Double entry (409)",
+          "name": "Vehicle Exit",
           "request": {
             "method": "POST",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles/1/entry",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles",
-                "1",
-                "entry"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Exit (200, -> OUTSIDE)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8082/api/vehicles/1/exit",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8082",
-              "path": [
-                "api",
-                "vehicles",
-                "1",
-                "exit"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Entry via API Gateway (200)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/api/vehicles/1/entry",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "vehicles",
-                "1",
-                "entry"
-              ]
-            }
+            "url": "{{baseUrl}}/api/vehicles/1/exit"
           }
         }
       ]
@@ -945,7 +152,7 @@
       "name": "Parking Service",
       "item": [
         {
-          "name": "Create a parking space (201)",
+          "name": "Create Space",
           "request": {
             "method": "POST",
             "header": [
@@ -958,25 +165,45 @@
               "mode": "raw",
               "raw": "{\n  \"ownerId\": 1,\n  \"spaceNumber\": \"A-01\",\n  \"location\": \"Level 1\",\n  \"city\": \"Colombo\",\n  \"zone\": \"Zone-A\",\n  \"pricePerHour\": 5.50\n}"
             },
-            "url": {
-              "raw": "http://localhost:8083/api/parking/spaces",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "spaces"
-              ]
-            }
+            "url": "{{baseUrl}}/api/parking/spaces"
           }
         },
         {
-          "name": "Create - duplicate space number (409)",
+          "name": "Get Spaces",
           "request": {
-            "method": "POST",
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/spaces"
+          }
+        },
+        {
+          "name": "Search by City",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/spaces?city=Colombo"
+          }
+        },
+        {
+          "name": "Search by Zone",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/spaces?zone=Zone-A"
+          }
+        },
+        {
+          "name": "Search Available",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/spaces?available=true"
+          }
+        },
+        {
+          "name": "Update Space",
+          "request": {
+            "method": "PUT",
             "header": [
               {
                 "key": "Content-Type",
@@ -985,96 +212,13 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ownerId\": 1,\n  \"spaceNumber\": \"A-01\",\n  \"location\": \"Level 2\",\n  \"city\": \"Colombo\",\n  \"zone\": \"Zone-A\",\n  \"pricePerHour\": 9.99\n}"
+              "raw": "{\n  \"spaceNumber\": \"A-01\",\n  \"location\": \"Level 2\",\n  \"city\": \"Colombo\",\n  \"zone\": \"Zone-A\",\n  \"pricePerHour\": 7.25\n}"
             },
-            "url": {
-              "raw": "http://localhost:8083/api/parking/spaces",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "spaces"
-              ]
-            }
+            "url": "{{baseUrl}}/api/parking/spaces/1"
           }
         },
         {
-          "name": "Search all spaces (200)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8083/api/parking/spaces",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "spaces"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Search by city + available (200)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8083/api/parking/spaces?city=Colombo&available=true",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "spaces"
-              ],
-              "query": [
-                {
-                  "key": "city",
-                  "value": "Colombo"
-                },
-                {
-                  "key": "available",
-                  "value": "true"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get space by id (200)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8083/api/parking/spaces/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "spaces",
-                "1"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Manual status update OCCUPIED (200)",
+          "name": "Update Status",
           "request": {
             "method": "PUT",
             "header": [
@@ -1087,25 +231,16 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"OCCUPIED\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8083/api/parking/spaces/1/status",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "spaces",
-                "1",
-                "status"
-              ]
-            }
+            "url": "{{baseUrl}}/api/parking/spaces/1/status"
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "Reservation",
+      "item": [
         {
-          "name": "Create reservation (201)",
+          "name": "Create Reservation",
           "request": {
             "method": "POST",
             "header": [
@@ -1118,23 +253,193 @@
               "mode": "raw",
               "raw": "{\n  \"userId\": 1,\n  \"vehicleId\": 1,\n  \"parkingSpaceId\": 1,\n  \"startTime\": \"2026-08-20T10:00:00Z\",\n  \"endTime\": \"2026-08-20T12:00:00Z\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8083/api/parking/reservations",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "reservations"
-              ]
-            }
+            "url": "{{baseUrl}}/api/parking/reservations"
           }
         },
         {
-          "name": "Double reservation - same space (409)",
+          "name": "Get Reservation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/reservations/1"
+          }
+        },
+        {
+          "name": "Get User Reservations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/reservations/user/1"
+          }
+        },
+        {
+          "name": "Cancel Reservation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/reservations/1/cancel"
+          }
+        },
+        {
+          "name": "Release Reservation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/reservations/1/release"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Service",
+      "item": [
+        {
+          "name": "Create Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4111111111111111\"\n}"
+            },
+            "url": "{{baseUrl}}/api/payments"
+          }
+        },
+        {
+          "name": "Get Payment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/payments/1"
+          }
+        },
+        {
+          "name": "Get Reservation Payment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/payments/reservation/1"
+          }
+        },
+        {
+          "name": "Get User Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/payments/user/1"
+          }
+        },
+        {
+          "name": "Get Receipt",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/payments/1/receipt"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "item": [
+        {
+          "name": "Duplicate User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Again\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"secret123\",\n  \"phone\": \"+1-555-0100\",\n  \"role\": \"DRIVER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/users"
+          }
+        },
+        {
+          "name": "Invalid Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"wrong-pass\"\n}"
+            },
+            "url": "{{baseUrl}}/api/users/login"
+          }
+        },
+        {
+          "name": "User Not Found",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/999999"
+          }
+        },
+        {
+          "name": "Vehicle Not Found",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehicles/999999"
+          }
+        },
+        {
+          "name": "Duplicate Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"vehicleNumber\": \"ABC-1234\",\n  \"vehicleType\": \"CAR\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\"\n}"
+            },
+            "url": "{{baseUrl}}/api/vehicles"
+          }
+        },
+        {
+          "name": "Vehicle Already Inside",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehicles/1/entry"
+          }
+        },
+        {
+          "name": "Vehicle Already Outside",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehicles/1/exit"
+          }
+        },
+        {
+          "name": "Parking Space Not Found",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/parking/spaces/999999"
+          }
+        },
+        {
+          "name": "Parking Space Already Reserved",
           "request": {
             "method": "POST",
             "header": [
@@ -1147,110 +452,11 @@
               "mode": "raw",
               "raw": "{\n  \"userId\": 2,\n  \"vehicleId\": 2,\n  \"parkingSpaceId\": 1,\n  \"startTime\": \"2026-08-20T11:00:00Z\",\n  \"endTime\": \"2026-08-20T13:00:00Z\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8083/api/parking/reservations",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "reservations"
-              ]
-            }
+            "url": "{{baseUrl}}/api/parking/reservations"
           }
         },
         {
-          "name": "Get reservation by id (200)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8083/api/parking/reservations/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "reservations",
-                "1"
-              ]
-            }
-          }
-        },
-        {
-          "name": "List reservations by user (200)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8083/api/parking/reservations/user/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "reservations",
-                "user",
-                "1"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Release reservation (200, space freed)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8083/api/parking/reservations/1/release",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "reservations",
-                "1",
-                "release"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Cancel reservation (200, space freed)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8083/api/parking/reservations/1/cancel",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "api",
-                "parking",
-                "reservations",
-                "1",
-                "cancel"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Create space via API Gateway (201)",
+          "name": "Invalid Reservation Time",
           "request": {
             "method": "POST",
             "header": [
@@ -1261,59 +467,13 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ownerId\": 1,\n  \"spaceNumber\": \"GW-01\",\n  \"location\": \"Level 1\",\n  \"city\": \"Colombo\",\n  \"zone\": \"Zone-A\",\n  \"pricePerHour\": 6.00\n}"
+              "raw": "{\n  \"userId\": 1,\n  \"vehicleId\": 1,\n  \"parkingSpaceId\": 1,\n  \"startTime\": \"2026-08-20T12:00:00Z\",\n  \"endTime\": \"2026-08-20T10:00:00Z\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8080/api/parking/spaces",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "parking",
-                "spaces"
-              ]
-            }
+            "url": "{{baseUrl}}/api/parking/reservations"
           }
         },
         {
-          "name": "Create reservation via API Gateway (201)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"userId\": 1,\n  \"vehicleId\": 1,\n  \"parkingSpaceId\": 1,\n  \"startTime\": \"2026-08-20T10:00:00Z\",\n  \"endTime\": \"2026-08-20T12:00:00Z\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8080/api/parking/reservations",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "parking",
-                "reservations"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Payment Service",
-      "item": [
-        {
-          "name": "Process payment SUCCESS - CARD (201)",
+          "name": "Duplicate Payment",
           "request": {
             "method": "POST",
             "header": [
@@ -1326,134 +486,11 @@
               "mode": "raw",
               "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4111111111111111\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8084/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
+            "url": "{{baseUrl}}/api/payments"
           }
         },
         {
-          "name": "Process payment FAILED - mock decline card (201)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reservationId\": 2,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4000000000000002\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8084/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Process payment CASH (201)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reservationId\": 3,\n  \"userId\": 1,\n  \"amount\": 300.50,\n  \"paymentMethod\": \"CASH\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8084/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Process payment MOCK_WALLET (201)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reservationId\": 4,\n  \"userId\": 1,\n  \"amount\": 75,\n  \"paymentMethod\": \"MOCK_WALLET\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8084/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Duplicate payment - same reservation (409)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4111111111111111\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8084/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Invalid card format (400)",
+          "name": "Invalid Payment",
           "request": {
             "method": "POST",
             "header": [
@@ -1466,185 +503,60 @@
               "mode": "raw",
               "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"1234\"\n}"
             },
-            "url": {
-              "raw": "http://localhost:8084/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
+            "url": "{{baseUrl}}/api/payments"
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "Infrastructure",
+      "item": [
         {
-          "name": "Card failing Luhn check (400)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"1111111111111111\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8084/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Reservation not found (404)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reservationId\": 99999,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4111111111111111\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8084/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get payment by id (200)",
+          "name": "Eureka Dashboard",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8084/api/payments/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments",
-                "1"
-              ]
-            }
+            "url": "http://localhost:8761/"
           }
         },
         {
-          "name": "Get payments by reservation (200)",
+          "name": "Eureka Registry (all apps)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8084/api/payments/reservation/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments",
-                "reservation",
-                "1"
-              ]
-            }
+            "url": "http://localhost:8761/eureka/apps"
           }
         },
         {
-          "name": "Get payments by user (200)",
+          "name": "Eureka Health (Actuator)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8084/api/payments/user/1",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments",
-                "user",
-                "1"
-              ]
-            }
+            "url": "http://localhost:8761/actuator/health"
           }
         },
         {
-          "name": "Get payment receipt (200)",
+          "name": "Config Server Health (Actuator)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "http://localhost:8084/api/payments/1/receipt",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8084",
-              "path": [
-                "api",
-                "payments",
-                "1",
-                "receipt"
-              ]
-            }
+            "url": "http://localhost:8888/actuator/health"
           }
         },
         {
-          "name": "Process payment via API Gateway (201)",
+          "name": "Gateway Health (Actuator)",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 600,\n  \"paymentMethod\": \"MOCK_WALLET\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8080/api/payments",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "api",
-                "payments"
-              ]
-            }
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8080/actuator/health"
+          }
+        },
+        {
+          "name": "Gateway Routes (Actuator)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8080/actuator/gateway/routes"
           }
         }
       ]
