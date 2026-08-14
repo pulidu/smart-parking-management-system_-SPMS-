@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Smart Parking Management System (SPMS)",
-    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Phase 2 adds Config Server configuration endpoints and the API Gateway (routing + gateway actuator). Phase 3 adds the User Service (registration, login, profiles, booking-history placeholder) - both direct (8081) and via the API Gateway (8080). Phase 3 also adds the Vehicle Service (registration, update, list, delete, simulated entry/exit) - both direct (8082) and via the API Gateway (8080). Endpoints for Parking and Payment services will be added as they are implemented.",
+    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Phase 2 adds Config Server configuration endpoints and the API Gateway (routing + gateway actuator). Phase 3 adds the User Service (registration, login, profiles, booking-history placeholder) and the Vehicle Service (registration, update, list, delete, simulated entry/exit) - both direct (8081/8082) and via the API Gateway (8080). Phase 4 adds the Parking Service (spaces CRUD, search/filter by city/zone/availability, manual status updates, reservations with cancel/release) - both direct (8083) and via the API Gateway (8080). Endpoints for the Payment service will be added as it is implemented.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -935,6 +935,374 @@
                 "vehicles",
                 "1",
                 "entry"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Parking Service",
+      "item": [
+        {
+          "name": "Create a parking space (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerId\": 1,\n  \"spaceNumber\": \"A-01\",\n  \"location\": \"Level 1\",\n  \"city\": \"Colombo\",\n  \"zone\": \"Zone-A\",\n  \"pricePerHour\": 5.50\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8083/api/parking/spaces",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "spaces"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create - duplicate space number (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerId\": 1,\n  \"spaceNumber\": \"A-01\",\n  \"location\": \"Level 2\",\n  \"city\": \"Colombo\",\n  \"zone\": \"Zone-A\",\n  \"pricePerHour\": 9.99\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8083/api/parking/spaces",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "spaces"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search all spaces (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/parking/spaces",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "spaces"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search by city + available (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/parking/spaces?city=Colombo&available=true",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "spaces"
+              ],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "Colombo"
+                },
+                {
+                  "key": "available",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get space by id (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/parking/spaces/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "spaces",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Manual status update OCCUPIED (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"OCCUPIED\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8083/api/parking/spaces/1/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "spaces",
+                "1",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create reservation (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"vehicleId\": 1,\n  \"parkingSpaceId\": 1,\n  \"startTime\": \"2026-08-20T10:00:00Z\",\n  \"endTime\": \"2026-08-20T12:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8083/api/parking/reservations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "reservations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Double reservation - same space (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 2,\n  \"vehicleId\": 2,\n  \"parkingSpaceId\": 1,\n  \"startTime\": \"2026-08-20T11:00:00Z\",\n  \"endTime\": \"2026-08-20T13:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8083/api/parking/reservations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "reservations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get reservation by id (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/parking/reservations/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "reservations",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List reservations by user (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/parking/reservations/user/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "reservations",
+                "user",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Release reservation (200, space freed)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/parking/reservations/1/release",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "reservations",
+                "1",
+                "release"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel reservation (200, space freed)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/parking/reservations/1/cancel",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "parking",
+                "reservations",
+                "1",
+                "cancel"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create space via API Gateway (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerId\": 1,\n  \"spaceNumber\": \"GW-01\",\n  \"location\": \"Level 1\",\n  \"city\": \"Colombo\",\n  \"zone\": \"Zone-A\",\n  \"pricePerHour\": 6.00\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/parking/spaces",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "parking",
+                "spaces"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create reservation via API Gateway (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"vehicleId\": 1,\n  \"parkingSpaceId\": 1,\n  \"startTime\": \"2026-08-20T10:00:00Z\",\n  \"endTime\": \"2026-08-20T12:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/parking/reservations",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "parking",
+                "reservations"
               ]
             }
           }

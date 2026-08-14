@@ -1,0 +1,32 @@
+# ---------------------------------------------------------------------------
+# parking-service test configuration
+# ---------------------------------------------------------------------------
+# Hermetic test setup: tests boot the service on a random port using an
+# in-memory H2 database (PostgreSQL mode), without contacting the Config Server
+# or Eureka. ddl-auto=create-drop lets Hibernate build the schema per run.
+
+spring:
+  application:
+    name: parking-service
+  config:
+    import:
+  cloud:
+    config:
+      import-check:
+        enabled: false
+  datasource:
+    url: jdbc:h2:mem:parkingdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+server:
+  port: 0
+
+eureka:
+  client:
+    enabled: false

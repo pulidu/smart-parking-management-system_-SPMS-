@@ -4,7 +4,7 @@ This document describes how to provision PostgreSQL for the SPMS microservices.
 Each service keeps its own database so services stay decoupled.
 
 > During development Hibernate manages the schema automatically
-> (`spring.jpa.hibernate.ddl-auto=update` for both services). Production should
+> (`spring.jpa.hibernate.ddl-auto=update` for the services). Production should
 > replace this with explicit Flyway/Liquibase migrations. The sections below
 > document what the services expect so the database can also be created by hand.
 
@@ -26,6 +26,10 @@ CREATE DATABASE user_db OWNER user_service;
 -- vehicle-service
 CREATE ROLE vehicle_service WITH LOGIN PASSWORD 'change-me';
 CREATE DATABASE vehicle_db OWNER vehicle_service;
+
+-- parking-service
+CREATE ROLE parking_service WITH LOGIN PASSWORD 'change-me';
+CREATE DATABASE parking_db OWNER parking_service;
 ```
 
 ## 2. Configure the service connection
@@ -43,6 +47,9 @@ credentials are committed to the repository):
 | `VEHICLE_DB_NAME`   | `vehicle_db`                                 |
 | `VEHICLE_DB_USERNAME` | `vehicle_service`                           |
 | `VEHICLE_DB_PASSWORD` | (the password you set above)               |
+| `PARKING_DB_NAME`   | `parking_db`                                 |
+| `PARKING_DB_USERNAME` | `parking_service`                         |
+| `PARKING_DB_PASSWORD` | (the password you set above)             |
 
 For example, in a terminal before starting the service:
 
@@ -56,17 +63,23 @@ $env:USER_DB_PASSWORD = "change-me"
 $env:VEHICLE_DB_NAME = "vehicle_db"
 $env:VEHICLE_DB_USERNAME = "vehicle_service"
 $env:VEHICLE_DB_PASSWORD = "change-me"
+$env:PARKING_DB_NAME = "parking_db"
+$env:PARKING_DB_USERNAME = "parking_service"
+$env:PARKING_DB_PASSWORD = "change-me"
 
 # Linux / macOS
 export DB_HOST=localhost DB_PORT=5432 USER_DB_NAME=user_db \
        USER_DB_USERNAME=user_service USER_DB_PASSWORD=change-me \
        VEHICLE_DB_NAME=vehicle_db VEHICLE_DB_USERNAME=vehicle_service \
-       VEHICLE_DB_PASSWORD=change-me
+       VEHICLE_DB_PASSWORD=change-me \
+       PARKING_DB_NAME=parking_db PARKING_DB_USERNAME=parking_service \
+       PARKING_DB_PASSWORD=change-me
 ```
 
 The Config Server assembles each service's JDBC URL as
 `jdbc:postgresql://${DB_HOST}:${DB_PORT}/${SERVICE_DB_NAME}` (e.g.
-`USER_DB_NAME` for the user service, `VEHICLE_DB_NAME` for the vehicle service).
+`USER_DB_NAME` for the user service, `VEHICLE_DB_NAME` for the vehicle service,
+`PARKING_DB_NAME` for the parking service).
 
 ## 3. Schema
 
@@ -125,8 +138,48 @@ Notes:
 - `status` is `OUTSIDE` or `INSIDE`; `entry_time` / `exit_time` track the most
   recent entry/exit events from the simulated entry/exit endpoints.
 
-Other services will own their own tables (parking spaces, bookings, payments)
-and will be documented as they are implemented.
+### parking-service — `parking_spaces` and `reservations` tables
+
+```sql
+CREATE TABLE IF NOT EXISTS parking_spaces (
+    id             BIGSERIAL PRIMARY KEY,
+    owner_id       BIGINT        NOT NULL,
+    space_number   VARCHAR(20)   NOT NULL,
+    location       VARCHAR(255)  NOT NULL,
+    city           VARCHAR(255)  NOT NULL,
+    zone           VARCHAR(50)   NOT NULL,
+    price_per_hour NUMERIC(10,2) NOT NULL,
+    status         VARCHAR(20)   NOT NULL,
+    created_at     TIMESTAMPTZ   NOT NULL,
+    updated_at     TIMESTAMPTZ   NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_parking_spaces_owner_space_number
+    ON parking_spaces (owner_id, space_number);
+
+CREATE TABLE IF NOT EXISTS reservations (
+    id               BIGSERIAL PRIMARY KEY,
+    user_id          BIGINT       NOT NULL,
+    vehicle_id       BIGINT       NOT NULL,
+    parking_space_id BIGINT       NOT NULL,
+    start_time       TIMESTAMPTZ  NOT NULL,
+    end_time         TIMESTAMPTZ  NOT NULL,
+    status           VARCHAR(20)  NOT NULL,
+    created_at       TIMESTAMPTZ  NOT NULL
+);
+```
+
+Notes:
+
+- `space_number` is unique **per owner** (`owner_id, space_number`) — duplicates
+  return `409 Conflict`.
+- `status` is `AVAILABLE`, `RESERVED`, `OCCUPIED` or `MAINTENANCE`.
+- `reservations.status` is `PENDING`, `CONFIRMED`, `CANCELLED` or `COMPLETED`.
+- `user_id`, `vehicle_id` and `parking_space_id` are plain references (no foreign
+  keys) so the parking service stays decoupled from the user/vehicle services.
+
+Other services will own their own tables (payments) and will be documented as
+they are implemented.
 
 ## 4. Verify
 

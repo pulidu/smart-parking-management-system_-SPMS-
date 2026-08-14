@@ -27,6 +27,7 @@
         <module>api-gateway</module>
         <module>user-service</module>
         <module>vehicle-service</module>
+        <module>parking-service</module>
     </modules>
 
     <properties>

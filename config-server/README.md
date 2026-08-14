@@ -26,7 +26,7 @@ Config files live in `src/main/resources/config/`:
 | `api-gateway.yml`    | `api-gateway`    | `server.port` (`${API_GATEWAY_PORT:8080}`)                          |
 | `user-service.yml`   | `user-service`   | port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) |
 | `vehicle-service.yml`| `vehicle-service`| port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) |
-| `parking-service.yml`| `parking-service`| port + PostgreSQL datasource (env-var placeholders)                 |
+| `parking-service.yml`| `parking-service`| port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) |
 | `payment-service.yml`| `payment-service`| port + PostgreSQL datasource (env-var placeholders)                 |
 
 All secrets/credentials use environment-variable placeholders with localhost

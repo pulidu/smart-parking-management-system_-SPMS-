@@ -15,6 +15,7 @@ users, their vehicles, parking spaces, parking sessions and payments.
 | API Gateway      | Spring Cloud Gateway 5.0.2 (WebFlux)         |
 | User Service     | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
 | Vehicle Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
+| Parking Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
 | Build tool       | Apache Maven (Maven Wrapper `mvnw` included) |
 | API style        | REST (JSON)                                  |
 
@@ -75,7 +76,7 @@ smart-parking-management-system/
 ├── api-gateway/            # ✅ implemented (Phase 2)
 ├── user-service/           # ✅ implemented (Phase 3)
 ├── vehicle-service/        # ✅ implemented (Phase 3)
-├── parking-service/        # scaffold only (Phase 3)
+├── parking-service/        # ✅ implemented (Phase 4)
 ├── payment-service/        # scaffold only (Phase 3)
 ├── docs/                   # architecture / API / database documentation
 ├── postman_collection.json # Postman collection for the REST APIs
@@ -93,7 +94,7 @@ smart-parking-management-system/
 | `api-gateway`     | ✅ Done — Spring Cloud Gateway, port 8080   |
 | `user-service`    | ✅ Done — users, auth, profiles, port 8081  |
 | `vehicle-service` | ✅ Done — vehicles + entry/exit, port 8082 |
-| `parking-service` | ⏳ Pending (Phase 3)                         |
+| `parking-service` | ✅ Done — spaces, search, reservations, port 8083 |
 | `payment-service` | ⏳ Pending (Phase 3)                         |
 
 ## Building
@@ -243,12 +244,12 @@ no backend host/port is hard-coded. Routes are defined centrally in
 
 ### Example requests
 
-Until the remaining backend services are implemented (Phase 3), a proxied request
-to an unimplemented service reaches the gateway route and then fails with `503`
-because no service instance is registered yet — this proves discovery-based
-routing is wired up. `USER-SERVICE` and `VEHICLE-SERVICE` are implemented, so
-`/api/users` and `/api/vehicles` requests are routed end-to-end. Full details are
-in `api-gateway/README.md`.
+Until the remaining backend services are implemented, a proxied request to an
+unimplemented service reaches the gateway route and then fails with `503` because
+no service instance is registered yet — this proves discovery-based routing is
+wired up. `USER-SERVICE`, `VEHICLE-SERVICE` and `PARKING-SERVICE` are
+implemented, so `/api/users`, `/api/vehicles` and `/api/parking` requests are
+routed end-to-end. Full details are in `api-gateway/README.md`.
 
 ```bash
 # User Service (implemented - routes to USER-SERVICE)
@@ -257,10 +258,10 @@ curl -i http://localhost:8080/api/users
 # Vehicle Service (implemented - routes to VEHICLE-SERVICE)
 curl -i http://localhost:8080/api/vehicles/1
 
-# Parking Service (Phase 3 target: PARKING-SERVICE) - currently 503, no instance yet
+# Parking Service (implemented - routes to PARKING-SERVICE)
 curl -i http://localhost:8080/api/parking/spaces
 
-# Payment Service (Phase 3 target: PAYMENT-SERVICE)
+# Payment Service (Phase 3 target: PAYMENT-SERVICE) - currently 503, no instance yet
 curl -i http://localhost:8080/api/payments/1
 
 # Unknown path - routed nowhere, gateway returns 404
@@ -408,6 +409,87 @@ curl -X POST http://localhost:8082/api/vehicles/1/exit    # → 409 (already out
 The status is a state machine: entry on an `INSIDE` vehicle and exit on an
 `OUTSIDE` vehicle are rejected with `409 Conflict`; entry/exit on an unknown id
 returns `404`.
+
+## Running the Parking Service
+
+Build first (see above), start the Eureka Server, Config Server and API Gateway
+(previous sections), then run one of:
+
+```bash
+# Option A - from the project root, using the Maven wrapper
+mvnw.cmd -pl parking-service spring-boot:run
+
+# Option B - run the built executable jar (after `mvnw.cmd clean install`)
+java -jar parking-service/target/parking-service-0.0.1-SNAPSHOT.jar
+
+# Option C - from an IDE
+# Open the project, then run com.smartparkingmanagementsystem.parking.ParkingServiceApplication
+```
+
+The service reads its PostgreSQL connection from environment variables
+(`DB_HOST`, `DB_PORT`, `PARKING_DB_NAME`, `PARKING_DB_USERNAME`,
+`PARKING_DB_PASSWORD`) and registers with Eureka as `PARKING-SERVICE` on port
+`8083`. See `docs/database-setup.md` for the PostgreSQL provisioning steps.
+
+On a successful start you will see:
+
+```
+Tomcat started on port 8083 (http) with context path '/'
+Started ParkingServiceApplication ...
+```
+
+### Endpoints
+
+| Method | Path                                     | Description                    |
+|--------|------------------------------------------|--------------------------------|
+| POST   | `/api/parking/spaces`                    | Create a parking space         |
+| GET    | `/api/parking/spaces`                    | Search/filter spaces           |
+| GET    | `/api/parking/spaces/{id}`               | Get a space                    |
+| PUT    | `/api/parking/spaces/{id}`               | Update a space                 |
+| DELETE | `/api/parking/spaces/{id}`               | Delete a space (204)           |
+| PUT    | `/api/parking/spaces/{id}/status`        | Manual/IoT status update       |
+| POST   | `/api/parking/reservations`              | Reserve a space                |
+| GET    | `/api/parking/reservations/{id}`         | Get a reservation              |
+| GET    | `/api/parking/reservations/user/{userId}`| List a user's reservations     |
+| POST   | `/api/parking/reservations/{id}/cancel`  | Cancel a reservation           |
+| POST   | `/api/parking/reservations/{id}/release` | Release a reservation          |
+
+Space status: `AVAILABLE`, `RESERVED`, `OCCUPIED`, `MAINTENANCE`. Reservation
+status: `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`. Search supports
+`?city=`, `?zone=` and `?available=true|false`. Errors: 400 invalid input,
+404 not found, 409 duplicate/state conflict. Full request/response samples are
+in `parking-service/README.md`.
+
+### Verifying
+
+| Check                            | URL / Command                                        |
+|----------------------------------|------------------------------------------------------|
+| Parking Service health (actuator) | http://localhost:8083/actuator/health               |
+| Create a space (direct)          | `curl -X POST http://localhost:8083/api/parking/spaces -H "Content-Type: application/json" -d "{\"ownerId\":1,\"spaceNumber\":\"A-01\",\"location\":\"Level 1\",\"city\":\"Colombo\",\"zone\":\"Zone-A\",\"pricePerHour\":5.50}"` |
+| Create via API Gateway           | Same POST but on `http://localhost:8080/api/parking/spaces` |
+| Search available spaces          | `curl "http://localhost:8083/api/parking/spaces?city=Colombo&available=true"` |
+| Eureka registry (PARKING-SERVICE)| http://localhost:8761/eureka/apps                    |
+
+### Example reservation flow
+
+```bash
+curl -X POST http://localhost:8083/api/parking/reservations \
+  -H "Content-Type: application/json" \
+  -d '{"userId":1,"vehicleId":1,"parkingSpaceId":1,"startTime":"2026-08-20T10:00:00Z","endTime":"2026-08-20T12:00:00Z"}'
+# → 201, reservation "PENDING", space "AVAILABLE" → "RESERVED"
+
+curl -X POST http://localhost:8083/api/parking/reservations/1/release
+# → 200, reservation "COMPLETED", space back to "AVAILABLE"
+
+curl -X POST http://localhost:8083/api/parking/reservations/1/cancel
+# → 409 (no longer active)
+```
+
+Reserving requires the space to exist (404) and be `AVAILABLE` (409), a
+`userId`/`vehicleId`/`startTime`/`endTime`, and `startTime` before `endTime`
+(400). A space with an active reservation cannot be double-booked (409) — the
+reservation is transactional and the space row is pessimistically locked, so
+concurrent attempts serialize and only one succeeds.
 
 ## Configuration
 

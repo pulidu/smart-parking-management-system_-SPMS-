@@ -1,0 +1,27 @@
+# ---------------------------------------------------------------------------
+# parking-service - local bootstrap configuration
+# ---------------------------------------------------------------------------
+# The service keeps only what it needs to boot and locate its centralized
+# configuration. The datasource (PostgreSQL), JPA settings, server port, Eureka
+# registration and management endpoints come from the Config Server
+# (config/parking-service.yml merged with config/application.yml).
+#
+# Database credentials are supplied through environment variables at runtime
+# (DB_HOST, DB_PORT, PARKING_DB_NAME, PARKING_DB_USERNAME, PARKING_DB_PASSWORD)
+# and are never committed to source control.
+
+spring:
+  application:
+    name: parking-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+
+server:
+  port: ${PARKING_SERVICE_PORT:8083}
+
+# Expose health (used by the gateway / Eureka).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
