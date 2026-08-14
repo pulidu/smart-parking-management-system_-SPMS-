@@ -285,6 +285,31 @@ class ParkingServiceApplicationTests {
     }
 
     @Test
+    void deleteParkingSpaceWithActiveReservationReturns409() throws Exception {
+        long spaceId = createSpace("DEL-R1");
+        createReservation(spaceId, 1, 1);
+        mockMvc.perform(delete("/api/parking/spaces/{id}", spaceId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message")
+                        .value("Cannot delete parking space " + spaceId + ": it has active reservations"));
+        mockMvc.perform(get("/api/parking/spaces/{id}", spaceId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESERVED"));
+    }
+
+    @Test
+    void deleteParkingSpaceWithCancelledReservationReturns204() throws Exception {
+        long spaceId = createSpace("DEL-R2");
+        long reservationId = createReservation(spaceId, 1, 1);
+        mockMvc.perform(post("/api/parking/reservations/{id}/cancel", reservationId)).andExpect(status().isOk());
+        mockMvc.perform(delete("/api/parking/spaces/{id}", spaceId))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/parking/spaces/{id}", spaceId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void deleteParkingSpaceNotFoundReturns404() throws Exception {
         mockMvc.perform(delete("/api/parking/spaces/99999"))
                 .andExpect(status().isNotFound());
@@ -364,6 +389,28 @@ class ParkingServiceApplicationTests {
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.message")
                         .value("Parking space " + spaceId + " is not available for reservation (status: MAINTENANCE)"));
+    }
+
+    @Test
+    void createReservationOnOccupiedSpaceReturns409() throws Exception {
+        long spaceId = createSpace("RES-OC");
+        setStatus(spaceId, "OCCUPIED");
+        mockMvc.perform(post("/api/parking/reservations").contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(spaceId, 1, 1)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message")
+                        .value("Parking space " + spaceId + " is not available for reservation (status: OCCUPIED)"));
+    }
+
+    @Test
+    void createReservationOnReservedSpaceReturns409() throws Exception {
+        long spaceId = createSpace("RES-RS");
+        setStatus(spaceId, "RESERVED");
+        mockMvc.perform(post("/api/parking/reservations").contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(spaceId, 1, 1)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
     }
 
     @Test

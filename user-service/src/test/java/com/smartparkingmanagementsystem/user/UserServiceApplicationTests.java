@@ -69,6 +69,32 @@ class UserServiceApplicationTests {
     }
 
     @Test
+    void registerDuplicateEmailMixedCaseReturns409() throws Exception {
+        String first = """
+                {
+                  "name": "Case Sensitive",
+                  "email": "case@example.com",
+                  "password": "secret123",
+                  "role": "DRIVER"
+                }
+                """;
+        mockMvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content(first))
+                .andExpect(status().isCreated());
+        String mixedCase = """
+                {
+                  "name": "Case Sensitive",
+                  "email": "Case@Example.com",
+                  "password": "secret123",
+                  "role": "DRIVER"
+                }
+                """;
+        mockMvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content(mixedCase))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value("Email already registered: Case@Example.com"));
+    }
+
+    @Test
     void registerInvalidEmailReturns400() throws Exception {
         String json = """
                 {

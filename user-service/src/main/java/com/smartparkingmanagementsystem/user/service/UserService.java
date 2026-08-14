@@ -30,7 +30,7 @@ public class UserService {
 
     @Transactional
     public UserResponse register(CreateUserRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
+        if (userRepository.existsByEmail(request.email().toLowerCase())) {
             throw new DuplicateEmailException("Email already registered: " + request.email());
         }
         User user = new User();
