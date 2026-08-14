@@ -14,6 +14,20 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
+    # Dev-friendly schema management: Hibernate creates/updates tables from the
+    # entities. Production deployments should migrate to explicit Flyway/Liquibase
+    # migrations instead.
+    hibernate:
+      ddl-auto: update
 
 server:
   port: ${PAYMENT_SERVICE_PORT:8084}
+
+payment-service:
+  # Verify that a reservation exists by calling the parking service before
+  # recording a payment. Set to false to run the payment service standalone.
+  verify-reservation: true
+  # Where to reach the parking service for reservation verification.
+  parking-service-url: ${PARKING_SERVICE_URL:http://localhost:8083}
+  # Card number that the MOCK gateway always declines (deterministic FAILED).
+  mock-failed-card: ${MOCK_FAILED_CARD:4000000000000002}

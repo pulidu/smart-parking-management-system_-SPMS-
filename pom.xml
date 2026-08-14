@@ -28,6 +28,7 @@
         <module>user-service</module>
         <module>vehicle-service</module>
         <module>parking-service</module>
+        <module>payment-service</module>
     </modules>
 
     <properties>

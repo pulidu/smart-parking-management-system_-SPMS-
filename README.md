@@ -16,6 +16,7 @@ users, their vehicles, parking spaces, parking sessions and payments.
 | User Service     | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
 | Vehicle Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
 | Parking Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation |
+| Payment Service  | Spring Boot 4.1.0 WebMVC + Spring Data JPA + PostgreSQL + Bean Validation (mock payment gateway) |
 | Build tool       | Apache Maven (Maven Wrapper `mvnw` included) |
 | API style        | REST (JSON)                                  |
 
@@ -77,7 +78,7 @@ smart-parking-management-system/
 ├── user-service/           # ✅ implemented (Phase 3)
 ├── vehicle-service/        # ✅ implemented (Phase 3)
 ├── parking-service/        # ✅ implemented (Phase 4)
-├── payment-service/        # scaffold only (Phase 3)
+├── payment-service/        # ✅ implemented (Phase 5)
 ├── docs/                   # architecture / API / database documentation
 ├── postman_collection.json # Postman collection for the REST APIs
 ├── mvnw / mvnw.cmd         # Maven Wrapper (Maven 3.9.16)
@@ -95,7 +96,7 @@ smart-parking-management-system/
 | `user-service`    | ✅ Done — users, auth, profiles, port 8081  |
 | `vehicle-service` | ✅ Done — vehicles + entry/exit, port 8082 |
 | `parking-service` | ✅ Done — spaces, search, reservations, port 8083 |
-| `payment-service` | ⏳ Pending (Phase 3)                         |
+| `payment-service` | ✅ Done — mock payments, receipts, port 8084 |
 
 ## Building
 
@@ -244,12 +245,9 @@ no backend host/port is hard-coded. Routes are defined centrally in
 
 ### Example requests
 
-Until the remaining backend services are implemented, a proxied request to an
-unimplemented service reaches the gateway route and then fails with `503` because
-no service instance is registered yet — this proves discovery-based routing is
-wired up. `USER-SERVICE`, `VEHICLE-SERVICE` and `PARKING-SERVICE` are
-implemented, so `/api/users`, `/api/vehicles` and `/api/parking` requests are
-routed end-to-end. Full details are in `api-gateway/README.md`.
+All backend services are implemented, so `/api/users`, `/api/vehicles`,
+`/api/parking` and `/api/payments` requests are routed end-to-end. Full details
+are in `api-gateway/README.md`.
 
 ```bash
 # User Service (implemented - routes to USER-SERVICE)
@@ -261,7 +259,7 @@ curl -i http://localhost:8080/api/vehicles/1
 # Parking Service (implemented - routes to PARKING-SERVICE)
 curl -i http://localhost:8080/api/parking/spaces
 
-# Payment Service (Phase 3 target: PAYMENT-SERVICE) - currently 503, no instance yet
+# Payment Service (implemented - routes to PAYMENT-SERVICE)
 curl -i http://localhost:8080/api/payments/1
 
 # Unknown path - routed nowhere, gateway returns 404
@@ -490,6 +488,87 @@ Reserving requires the space to exist (404) and be `AVAILABLE` (409), a
 (400). A space with an active reservation cannot be double-booked (409) — the
 reservation is transactional and the space row is pessimistically locked, so
 concurrent attempts serialize and only one succeeds.
+
+## Running the Payment Service
+
+Build first (see above), start the Eureka Server, Config Server, API Gateway and
+Parking Service (previous sections), then run one of:
+
+```bash
+# Option A - from the project root, using the Maven wrapper
+mvnw.cmd -pl payment-service spring-boot:run
+
+# Option B - run the built executable jar (after `mvnw.cmd clean install`)
+java -jar payment-service/target/payment-service-0.0.1-SNAPSHOT.jar
+
+# Option C - from an IDE
+# Open the project, then run com.smartparkingmanagementsystem.payment.PaymentServiceApplication
+```
+
+This is a **mock payment gateway** — no real Stripe/PayPal/Visa integration. The
+service reads its PostgreSQL connection from environment variables
+(`DB_HOST`, `DB_PORT`, `PAYMENT_DB_NAME`, `PAYMENT_DB_USERNAME`,
+`PAYMENT_DB_PASSWORD`) and registers with Eureka as `PAYMENT-SERVICE` on port
+`8084`. Before recording a payment it verifies the reservation exists by calling
+the parking service (`payment-service.verify-reservation`, default `true`). See
+`docs/database-setup.md` for the PostgreSQL provisioning steps.
+
+On a successful start you will see:
+
+```
+Tomcat started on port 8084 (http) with context path '/'
+Started PaymentServiceApplication ...
+```
+
+### Endpoints
+
+| Method | Path                                        | Description                    |
+|--------|---------------------------------------------|--------------------------------|
+| POST   | `/api/payments`                             | Process a mock payment         |
+| GET    | `/api/payments/{id}`                        | Get a payment (incl. status)   |
+| GET    | `/api/payments/reservation/{reservationId}` | List a reservation's payments  |
+| GET    | `/api/payments/user/{userId}`               | List a user's payments         |
+| GET    | `/api/payments/{id}/receipt`                | Get the digital receipt        |
+
+Payment status: `PENDING`, `SUCCESS`, `FAILED`. Payment methods: `CARD`,
+`CASH`, `MOCK_WALLET`. Errors: 400 invalid card data, 404 payment/reservation
+not found, 409 duplicate payment for the same reservation, 503 parking service
+unreachable. Full request/response samples are in `payment-service/README.md`.
+
+### Verifying
+
+| Check                            | URL / Command                                        |
+|----------------------------------|------------------------------------------------------|
+| Payment Service health (actuator) | http://localhost:8084/actuator/health               |
+| Process a payment (direct)       | `curl -X POST http://localhost:8084/api/payments -H "Content-Type: application/json" -d "{\"reservationId\":1,\"userId\":1,\"amount\":500,\"paymentMethod\":\"CARD\",\"cardNumber\":\"4111111111111111\"}"` |
+| Process via API Gateway          | Same POST but on `http://localhost:8080/api/payments` |
+| Eureka registry (PAYMENT-SERVICE)| http://localhost:8761/eureka/apps                    |
+
+### Example payment flow
+
+```bash
+curl -X POST http://localhost:8084/api/payments \
+  -H "Content-Type: application/json" \
+  -d '{"reservationId":1,"userId":1,"amount":500,"paymentMethod":"CARD","cardNumber":"4111111111111111"}'
+# → 201, "status": "SUCCESS", "transactionId": "TXN-...", "maskedCardNumber": "**** **** **** 1111"
+
+curl -X POST http://localhost:8084/api/payments \
+  -H "Content-Type: application/json" \
+  -d '{"reservationId":1,"userId":1,"amount":500,"paymentMethod":"CARD","cardNumber":"4000000000000002"}'
+# → 409 (a SUCCESS payment already exists for reservation 1)
+
+curl -X POST http://localhost:8084/api/payments \
+  -H "Content-Type: application/json" \
+  -d '{"reservationId":2,"userId":1,"amount":500,"paymentMethod":"CARD","cardNumber":"4000000000000002"}'
+# → 201, "status": "FAILED" (mock decline card; retry with 4111... afterwards is allowed)
+
+curl http://localhost:8084/api/payments/1/receipt
+# → 200, receipt with receiptId/transactionId/paymentStatus
+```
+
+The mock gateway declines the configured card `4000000000000002`
+(`MOCK_FAILED_CARD`) and accepts everything else; `CASH`/`MOCK_WALLET` always
+succeed. Failed transactions are still stored for audit.
 
 ## Configuration
 

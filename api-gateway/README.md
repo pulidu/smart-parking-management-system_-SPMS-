@@ -99,8 +99,10 @@ Started ApiGatewayApplication ...
 
 ### Example requests
 
+All backend services are implemented, so these requests are routed end-to-end:
+
 ```bash
-# Routed to USER-SERVICE (Phase 3 target) - currently 503, no instance yet
+# Routed to USER-SERVICE
 curl -i http://localhost:8080/api/users
 
 # Routed to VEHICLE-SERVICE

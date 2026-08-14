@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Smart Parking Management System (SPMS)",
-    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Phase 2 adds Config Server configuration endpoints and the API Gateway (routing + gateway actuator). Phase 3 adds the User Service (registration, login, profiles, booking-history placeholder) and the Vehicle Service (registration, update, list, delete, simulated entry/exit) - both direct (8081/8082) and via the API Gateway (8080). Phase 4 adds the Parking Service (spaces CRUD, search/filter by city/zone/availability, manual status updates, reservations with cancel/release) - both direct (8083) and via the API Gateway (8080). Endpoints for the Payment service will be added as it is implemented.",
+    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Phase 2 adds Config Server configuration endpoints and the API Gateway (routing + gateway actuator). Phase 3 adds the User Service (registration, login, profiles, booking-history placeholder) and the Vehicle Service (registration, update, list, delete, simulated entry/exit) - both direct (8081/8082) and via the API Gateway (8080). Phase 4 adds the Parking Service (spaces CRUD, search/filter by city/zone/availability, manual status updates, reservations with cancel/release) - both direct (8083) and via the API Gateway (8080). Phase 5 adds the Payment Service (mock payment gateway: process payments, SUCCESS/FAILED simulation, receipts, duplicate-payment guard) - both direct (8084) and via the API Gateway (8080).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1303,6 +1303,346 @@
                 "api",
                 "parking",
                 "reservations"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Service",
+      "item": [
+        {
+          "name": "Process payment SUCCESS - CARD (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4111111111111111\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8084/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Process payment FAILED - mock decline card (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 2,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4000000000000002\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8084/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Process payment CASH (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 3,\n  \"userId\": 1,\n  \"amount\": 300.50,\n  \"paymentMethod\": \"CASH\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8084/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Process payment MOCK_WALLET (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 4,\n  \"userId\": 1,\n  \"amount\": 75,\n  \"paymentMethod\": \"MOCK_WALLET\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8084/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Duplicate payment - same reservation (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4111111111111111\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8084/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invalid card format (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"1234\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8084/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Card failing Luhn check (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"1111111111111111\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8084/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reservation not found (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 99999,\n  \"userId\": 1,\n  \"amount\": 500,\n  \"paymentMethod\": \"CARD\",\n  \"cardNumber\": \"4111111111111111\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8084/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get payment by id (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8084/api/payments/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get payments by reservation (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8084/api/payments/reservation/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments",
+                "reservation",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get payments by user (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8084/api/payments/user/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments",
+                "user",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get payment receipt (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8084/api/payments/1/receipt",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "api",
+                "payments",
+                "1",
+                "receipt"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Process payment via API Gateway (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": 1,\n  \"userId\": 1,\n  \"amount\": 600,\n  \"paymentMethod\": \"MOCK_WALLET\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "payments"
               ]
             }
           }

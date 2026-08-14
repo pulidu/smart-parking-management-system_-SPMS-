@@ -27,7 +27,7 @@ Config files live in `src/main/resources/config/`:
 | `user-service.yml`   | `user-service`   | port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) |
 | `vehicle-service.yml`| `vehicle-service`| port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) |
 | `parking-service.yml`| `parking-service`| port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) |
-| `payment-service.yml`| `payment-service`| port + PostgreSQL datasource (env-var placeholders)                 |
+| `payment-service.yml`| `payment-service`| port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) + mock gateway settings |
 
 All secrets/credentials use environment-variable placeholders with localhost
 defaults — no real secrets are committed. Example:
