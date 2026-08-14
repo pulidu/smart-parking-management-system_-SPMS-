@@ -148,10 +148,15 @@ and reproducible.
 ### Reservation verification
 
 Payment creation verifies the reservation against the **parking service** via a
-`ReservationVerifier` (`RestClient`). This keeps the services decoupled at the
-database level (no foreign keys) while still enforcing the `404` rule. It is
-toggled by `payment-service.verify-reservation` (default `true`) so the payment
-service can also run standalone for local smoke tests.
+`ReservationVerifier` (`RestClient`). The parking service is reached through
+**Eureka service discovery** using the load-balanced name `lb://PARKING-SERVICE`
+— the instance address is resolved at runtime and no host/port is hardcoded.
+This keeps the services decoupled at the database level (no foreign keys) while
+still enforcing the `404` rule. It is toggled by
+`payment-service.verify-reservation` (default `true`) so the payment service can
+also run standalone for local smoke tests. The inter-service call has explicit
+timeouts (`payment-service.client.connect-timeout-ms` / `.read-timeout-ms`,
+default 3s/5s) so a slow or unreachable parking service cannot hang a payment.
 
 ## Error handling
 
@@ -192,8 +197,10 @@ Uses **PostgreSQL**. Connection settings come from environment variables and are
 | `PAYMENT_SERVICE_PORT`  | `8084`      | Service port                   |
 | `EUREKA_SERVER_URL`     | `http://localhost:8761/eureka/` | Eureka registry URL |
 | `CONFIG_SERVER_URL`     | `http://localhost:8888` | Config Server URL      |
-| `PARKING_SERVICE_URL`   | `http://localhost:8083` | Parking service URL for reservation verification |
 | `MOCK_FAILED_CARD`      | `4000000000000002` | Card that the mock gateway declines |
+
+The parking service is **not** configured via URL — the `ReservationVerifier`
+resolves it through Eureka as `lb://PARKING-SERVICE` at runtime.
 
 The connection URL is assembled by the Config Server as
 `jdbc:postgresql://${DB_HOST}:${DB_PORT}/${PAYMENT_DB_NAME}`. Tables are created
@@ -286,6 +293,7 @@ mvnw.cmd -pl payment-service test
 ```
 src/main/java/com/smartparkingmanagementsystem/payment/
 ├── PaymentServiceApplication.java       # Spring Boot bootstrap
+├── config/RestClientConfig.java         # @LoadBalanced RestClient.Builder + timeouts
 ├── controller/PaymentController.java        # /api/payments**
 ├── dto/                                # request/response/receipt records
 ├── exception/                          # custom exceptions + global handler + ApiError

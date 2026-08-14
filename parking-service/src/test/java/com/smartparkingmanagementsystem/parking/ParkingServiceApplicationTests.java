@@ -1,6 +1,9 @@
 package com.smartparkingmanagementsystem.parking;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -18,16 +21,25 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import com.jayway.jsonpath.JsonPath;
+import com.smartparkingmanagementsystem.parking.client.UserServiceClient;
+import com.smartparkingmanagementsystem.parking.client.VehicleServiceClient;
+import com.smartparkingmanagementsystem.parking.client.dto.UserInfoDto;
+import com.smartparkingmanagementsystem.parking.client.dto.VehicleInfoDto;
 import com.smartparkingmanagementsystem.parking.dto.CreateReservationRequest;
+import com.smartparkingmanagementsystem.parking.exception.ReferencedResourceNotFoundException;
+import com.smartparkingmanagementsystem.parking.exception.UpstreamServiceUnavailableException;
+import com.smartparkingmanagementsystem.parking.exception.VehicleOwnershipException;
 import com.smartparkingmanagementsystem.parking.repository.ParkingSpaceRepository;
 import com.smartparkingmanagementsystem.parking.repository.ReservationRepository;
 import com.smartparkingmanagementsystem.parking.service.ReservationService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = { "eureka.client.enabled=false", "spring.config.import=",
@@ -46,6 +58,26 @@ class ParkingServiceApplicationTests {
 
     @Autowired
     private ParkingSpaceRepository parkingSpaceRepository;
+
+    @MockitoBean
+    private UserServiceClient userServiceClient;
+
+    @MockitoBean
+    private VehicleServiceClient vehicleServiceClient;
+
+    /**
+     * Reservation creation validates the referenced user and vehicle through the
+     * User / Vehicle Service clients. These are mocked so the tests run fully
+     * offline; defaults accept any user/vehicle and the failure paths are
+     * exercised with per-test stubbing.
+     */
+    @BeforeEach
+    void setUpClients() {
+        when(userServiceClient.getUser(anyLong()))
+                .thenReturn(new UserInfoDto(1L, "Alice", "alice@example.com", "0771234567", "USER"));
+        when(vehicleServiceClient.getVehicleOwnedBy(anyLong(), anyLong()))
+                .thenReturn(new VehicleInfoDto(1L, 1L, "ABC-1234", "CAR", "Toyota", "Corolla", "AVAILABLE"));
+    }
 
     @AfterEach
     void cleanDatabase() {
@@ -365,6 +397,66 @@ class ParkingServiceApplicationTests {
                                 """.formatted(spaceId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("startTime must be before endTime"));
+    }
+
+    @Test
+    void createReservationUserNotFoundReturns404() throws Exception {
+        long spaceId = createSpace("RES-NU");
+        doThrow(new ReferencedResourceNotFoundException("User not found with id: 99999"))
+                .when(userServiceClient).getUser(99999L);
+        mockMvc.perform(post("/api/parking/reservations").contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(spaceId, 99999, 1)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("User not found with id: 99999"));
+    }
+
+    @Test
+    void createReservationVehicleNotFoundReturns404() throws Exception {
+        long spaceId = createSpace("RES-NV");
+        doThrow(new ReferencedResourceNotFoundException("Vehicle not found with id: 99999"))
+                .when(vehicleServiceClient).getVehicleOwnedBy(99999L, 1L);
+        mockMvc.perform(post("/api/parking/reservations").contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(spaceId, 1, 99999)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Vehicle not found with id: 99999"));
+    }
+
+    @Test
+    void createReservationVehicleNotOwnedByUserReturns409() throws Exception {
+        long spaceId = createSpace("RES-WO");
+        doThrow(new VehicleOwnershipException("Vehicle 5 does not belong to user 1"))
+                .when(vehicleServiceClient).getVehicleOwnedBy(5L, 1L);
+        mockMvc.perform(post("/api/parking/reservations").contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(spaceId, 1, 5)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value("Vehicle 5 does not belong to user 1"));
+    }
+
+    @Test
+    void createReservationUserServiceUnavailableReturns503() throws Exception {
+        long spaceId = createSpace("RES-UU");
+        doThrow(new UpstreamServiceUnavailableException("User service is unreachable while fetching user 1"))
+                .when(userServiceClient).getUser(1L);
+        mockMvc.perform(post("/api/parking/reservations").contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(spaceId, 1, 1)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.message").value("User service is unreachable while fetching user 1"));
+    }
+
+    @Test
+    void createReservationVehicleServiceUnavailableReturns503() throws Exception {
+        long spaceId = createSpace("RES-VU");
+        doThrow(new UpstreamServiceUnavailableException("Vehicle service is unreachable while fetching vehicle 1"))
+                .when(vehicleServiceClient).getVehicleOwnedBy(1L, 1L);
+        mockMvc.perform(post("/api/parking/reservations").contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(spaceId, 1, 1)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.message").value("Vehicle service is unreachable while fetching vehicle 1"));
     }
 
     @Test

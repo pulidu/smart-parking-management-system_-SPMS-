@@ -51,7 +51,7 @@ GET /api/parking/spaces?city=Colombo&available=true
 
 | Method | Path                                       | Description                     | Success | Errors |
 |--------|--------------------------------------------|---------------------------------|---------|--------|
-| POST   | `/api/parking/reservations`                | Create a reservation            | 201     | 400, 404, 409 |
+| POST   | `/api/parking/reservations`                | Create a reservation            | 201     | 400, 404, 409, 503 |
 | GET    | `/api/parking/reservations/{id}`           | Get a reservation               | 200     | 404    |
 | GET    | `/api/parking/reservations/user/{userId}`  | List a user's reservations      | 200     | -      |
 | POST   | `/api/parking/reservations/{id}/cancel`    | Cancel a reservation            | 200     | 404, 409 |
@@ -151,18 +151,27 @@ Response `201 Created`:
 
 ### Reservation logic (create)
 
-1. Parking space must exist → else `404 Not Found`.
-2. Parking space must be `AVAILABLE` → else `409 Conflict`.
-3. `userId` must be provided → `400` (bean validation).
-4. `vehicleId` must be provided → `400` (bean validation).
-5. `startTime` must be before `endTime` → else `400`.
-6. Create the reservation with status `PENDING`.
-7. Change the space status `AVAILABLE` → `RESERVED`.
-8. **Prevent double reservation** — an active (`PENDING`/`CONFIRMED`)
+1. `userId` must be provided → `400` (bean validation).
+2. `vehicleId` must be provided → `400` (bean validation).
+3. `startTime` must be before `endTime` → else `400`.
+4. **Inter-service validation** (via Eureka discovery, no hardcoded URLs):
+   - the referenced **user must exist** in the User Service
+     (`lb://USER-SERVICE/api/users/{id}`) → else `404`; User Service
+     unreachable → `503`.
+   - the referenced **vehicle must exist** in the Vehicle Service
+     (`lb://VEHICLE-SERVICE/api/vehicles/{id}`) → else `404`; **and must belong
+     to that user** → else `409 Conflict`; Vehicle Service unreachable → `503`.
+5. Parking space must exist → else `404 Not Found`.
+6. Parking space must be `AVAILABLE` → else `409 Conflict`.
+7. Create the reservation with status `PENDING`.
+8. Change the space status `AVAILABLE` → `RESERVED`.
+9. **Prevent double reservation** — an active (`PENDING`/`CONFIRMED`)
    reservation on the same space yields `409 Conflict`.
-9. All checks return the uniform `ApiError` JSON envelope.
+10. All checks return the uniform `ApiError` JSON envelope.
 
-The reservation creation is `@Transactional` and **locks the parking space row
+The inter-service user/vehicle validation runs **before** the space row is
+locked, so a slow or unavailable upstream cannot hold the database lock. The
+reservation creation is `@Transactional` and **locks the parking space row
 pessimistically** (`SELECT ... FOR UPDATE`) so two concurrent reservation
 attempts on the same space serialize: exactly one succeeds, the other receives
 `409 Conflict`. This is covered by a dedicated concurrency test.
@@ -195,18 +204,22 @@ Errors use the same JSON envelope as the other SPMS services:
 | Situation                                | Status code |
 |------------------------------------------|-------------|
 | Parking space / reservation not found    | 404         |
+| Referenced user / vehicle not found      | 404         |
 | Duplicate space number (same owner)      | 409         |
 | Space not `AVAILABLE` when reserving     | 409         |
 | Double reservation on the same space     | 409         |
+| Vehicle does not belong to the user      | 409         |
 | Cancel/release of an inactive reservation| 409         |
 | Deleting a space with active reservation | 409         |
 | `startTime` >= `endTime`                 | 400         |
 | Invalid input / malformed body           | 400         |
+| User / Vehicle Service unreachable       | 503         |
 | Unexpected error                         | 500         |
 
 ## Concurrency
 
-`reservationService.create(...)` runs inside a transaction that:
+The inter-service user/vehicle validation (steps 4 above) happens outside the
+row lock. `reservationService.create(...)` then runs inside a transaction that:
 
 1. locks the space row (`ParkingSpaceRepository.findByIdForUpdate`, `PESSIMISTIC_WRITE`),
 2. re-checks the space is `AVAILABLE`,
@@ -299,8 +312,9 @@ java -jar parking-service/target/parking-service-0.0.1-SNAPSHOT.jar \
 
 Integration tests (`src/test/java/.../ParkingServiceApplicationTests.java`) boot
 the service on a random port with an in-memory H2 database and exercise every
-endpoint plus the reservation business rules and the concurrency guard (41
-tests):
+endpoint plus the reservation business rules, the inter-service validation paths
+and the concurrency guard (46 tests). The User/Vehicle Service clients are
+mocked (`@MockitoBean`) so the tests run fully offline:
 
 ```bash
 mvnw.cmd -pl parking-service test
@@ -315,6 +329,8 @@ mvnw.cmd -pl parking-service test
   get 200/404, list by user (full + empty), cancel 200 + space freed, double
   cancel 409, release 200 + space freed, release when inactive 409, double
   reservation 409, reserve-cancel-reserve cycle, cancel unknown 404
+- inter-service validation: user not found 404, vehicle not found 404, vehicle
+  not owned by user 409, User/Vehicle Service unreachable 503
 - **concurrency**: two threads reserve the same space simultaneously — exactly
   one succeeds
 
@@ -323,6 +339,10 @@ mvnw.cmd -pl parking-service test
 ```
 src/main/java/com/smartparkingmanagementsystem/parking/
 ├── ParkingServiceApplication.java       # Spring Boot bootstrap
+├── client/                              # inter-service REST clients (lb://USER-SERVICE,
+│                                        #   lb://VEHICLE-SERVICE) + clean DTOs
+├── client/dto/VehicleInfoDto.java, UserInfoDto.java
+├── config/RestClientConfig.java         # @LoadBalanced RestClient.Builder + timeouts
 ├── controller/ParkingSpaceController.java   # /api/parking/spaces**
 ├── controller/ReservationController.java    # /api/parking/reservations**
 ├── dto/                                # request/response records

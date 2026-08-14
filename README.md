@@ -67,6 +67,52 @@ through REST endpoints exposed via an API gateway.
 | `parking-service`| 8083          | Parking spaces, availability, sessions                                |
 | `payment-service`| 8084          | Payments and billing                                                  |
 
+### Inter-service communication
+
+Services never call each other through hardcoded host/ports. Backend-to-backend
+calls go through **Eureka service discovery** using the load-balanced service
+name scheme `lb://EUREKA-SERVICE-ID` (the same mechanism the gateway uses for
+routing), so the target instance is resolved at runtime and no localhost URL is
+baked into any service:
+
+```
+Gateway
+   |
+   +--> User Service
+   |
+   +--> Vehicle Service
+   |
+   +--> Parking Service
+              |
+              +--> Vehicle Service      (validate vehicle exists + belongs to user)
+              |
+              +--> User Service         (validate user exists)
+
+Payment Service
+   |
+   +--> Parking Service                 (validate reservation exists)
+```
+
+- **Parking Service → User Service**: before creating a reservation, the
+  referenced user must exist (`GET /api/users/{id}`). Unknown user → `404`,
+  User Service unreachable → `503`.
+- **Parking Service → Vehicle Service**: the referenced vehicle must exist
+  *and* belong to the requesting user (`GET /api/vehicles/{id}`). Unknown
+  vehicle → `404`, vehicle owned by someone else → `409`, Vehicle Service
+  unreachable → `503`.
+- **Payment Service → Parking Service**: before recording a payment, the
+  reservation must exist (`GET /api/parking/reservations/{id}`). Unknown
+  reservation → `404`, Parking Service unreachable → `503`.
+
+These calls are synchronous REST with explicit connect/read timeouts (default
+3s/5s, configurable via `*.client.connect-timeout-ms` / `*.client.read-timeout-ms`)
+so a slow or down upstream cannot hang a request. The dependency graph is acyclic
+(Payment → Parking and Parking → User/Vehicle; Parking never calls back into
+Payment), and each service only exposes its public DTOs to the others. Clean
+client-side DTOs (`VehicleInfoDto`, `UserInfoDto`) keep the caller decoupled from
+the callee's internal entities. Hermetic tests stub the inter-service clients
+(`@MockitoBean`), so every module still builds and tests offline.
+
 ### Project layout
 
 ```
@@ -455,8 +501,10 @@ Started ParkingServiceApplication ...
 Space status: `AVAILABLE`, `RESERVED`, `OCCUPIED`, `MAINTENANCE`. Reservation
 status: `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`. Search supports
 `?city=`, `?zone=` and `?available=true|false`. Errors: 400 invalid input,
-404 not found, 409 duplicate/state conflict. Full request/response samples are
-in `parking-service/README.md`.
+404 not found (space/reservation, or a referenced user/vehicle that does not
+exist), 409 duplicate/state conflict or vehicle owned by another user, 503 when
+the User/Vehicle Service is unreachable during reservation validation. Full
+request/response samples are in `parking-service/README.md`.
 
 ### Verifying
 
@@ -485,9 +533,13 @@ curl -X POST http://localhost:8083/api/parking/reservations/1/cancel
 
 Reserving requires the space to exist (404) and be `AVAILABLE` (409), a
 `userId`/`vehicleId`/`startTime`/`endTime`, and `startTime` before `endTime`
-(400). A space with an active reservation cannot be double-booked (409) — the
-reservation is transactional and the space row is pessimistically locked, so
-concurrent attempts serialize and only one succeeds.
+(400). The referenced **user must exist** (verified via `lb://USER-SERVICE`,
+404 if not) and the referenced **vehicle must exist and belong to that user**
+(verified via `lb://VEHICLE-SERVICE`, 404 if the vehicle is unknown, 409 if it
+belongs to someone else; 503 if either upstream service is unreachable). A space
+with an active reservation cannot be double-booked (409) — the reservation is
+transactional and the space row is pessimistically locked, so concurrent
+attempts serialize and only one succeeds.
 
 ## Running the Payment Service
 
@@ -510,8 +562,9 @@ service reads its PostgreSQL connection from environment variables
 (`DB_HOST`, `DB_PORT`, `PAYMENT_DB_NAME`, `PAYMENT_DB_USERNAME`,
 `PAYMENT_DB_PASSWORD`) and registers with Eureka as `PAYMENT-SERVICE` on port
 `8084`. Before recording a payment it verifies the reservation exists by calling
-the parking service (`payment-service.verify-reservation`, default `true`). See
-`docs/database-setup.md` for the PostgreSQL provisioning steps.
+the parking service through Eureka service discovery (`lb://PARKING-SERVICE`,
+`payment-service.verify-reservation`, default `true`) — no host/port is
+hardcoded. See `docs/database-setup.md` for the PostgreSQL provisioning steps.
 
 On a successful start you will see:
 

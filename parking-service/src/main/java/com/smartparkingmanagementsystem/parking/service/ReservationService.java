@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.smartparkingmanagementsystem.parking.client.UserServiceClient;
+import com.smartparkingmanagementsystem.parking.client.VehicleServiceClient;
 import com.smartparkingmanagementsystem.parking.dto.CreateReservationRequest;
 import com.smartparkingmanagementsystem.parking.dto.ReservationResponse;
 import com.smartparkingmanagementsystem.parking.exception.DuplicateReservationException;
@@ -37,24 +39,39 @@ public class ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final ParkingSpaceRepository parkingSpaceRepository;
+    private final UserServiceClient userServiceClient;
+    private final VehicleServiceClient vehicleServiceClient;
 
     /**
      * Creates a reservation. Business rules:
      * <ol>
-     *   <li>parking space must exist (else 404)</li>
-     *   <li>parking space must be AVAILABLE (else 409)</li>
      *   <li>userId and vehicleId must be provided (bean validation, 400)</li>
      *   <li>startTime must be before endTime (else 400)</li>
+     *   <li>the referenced user must exist in the User Service (else 404)</li>
+     *   <li>the referenced vehicle must exist and belong to the user (else 404 / 409)</li>
+     *   <li>User / Vehicle Service unreachable (else 503)</li>
+     *   <li>parking space must exist (else 404)</li>
+     *   <li>parking space must be AVAILABLE (else 409)</li>
      *   <li>no active reservation may already exist for the space (else 409)</li>
      *   <li>reservation is created as PENDING</li>
      *   <li>space status changes AVAILABLE -&gt; RESERVED</li>
      * </ol>
+     *
+     * <p>The inter-service user/vehicle validation happens <em>before</em> the
+     * parking space row is locked so a slow or unavailable upstream service
+     * cannot hold the database lock.
      */
     @Transactional
     public ReservationResponse create(CreateReservationRequest request) {
         if (!request.startTime().isBefore(request.endTime())) {
             throw new InvalidReservationException("startTime must be before endTime");
         }
+
+        // Inter-service validation: the referenced user must exist and the
+        // referenced vehicle must exist AND belong to that user. Failures are
+        // reported as 404 / 409 / 503 by the client exceptions.
+        userServiceClient.getUser(request.userId());
+        vehicleServiceClient.getVehicleOwnedBy(request.vehicleId(), request.userId());
 
         // Lock the space row so concurrent reservation attempts serialize.
         ParkingSpace space = parkingSpaceRepository.findByIdForUpdate(request.parkingSpaceId())

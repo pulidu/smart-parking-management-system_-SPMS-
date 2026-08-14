@@ -23,9 +23,12 @@ import jakarta.servlet.http.HttpServletRequest;
  *
  * <ul>
  *   <li>parking space / reservation not found          -&gt; 404</li>
+ *   <li>referenced user / vehicle not found             -&gt; 404</li>
  *   <li>duplicate space number / duplicate reservation  -&gt; 409</li>
  *   <li>invalid state transition (space or reservation) -&gt; 409</li>
+ *   <li>vehicle does not belong to the requesting user  -&gt; 409</li>
  *   <li>invalid reservation (start &gt;= end)             -&gt; 400</li>
+ *   <li>upstream service (User / Vehicle) unreachable   -&gt; 503</li>
  *   <li>invalid input                                    -&gt; 400</li>
  *   <li>unexpected errors                                -&gt; 500</li>
  * </ul>
@@ -43,6 +46,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ReservationNotFoundException.class)
     public ResponseEntity<ApiError> handleReservationNotFound(ReservationNotFoundException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(ReferencedResourceNotFoundException.class)
+    public ResponseEntity<ApiError> handleReferencedNotFound(ReferencedResourceNotFoundException ex,
+                                                             HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(VehicleOwnershipException.class)
+    public ResponseEntity<ApiError> handleVehicleOwnership(VehicleOwnershipException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(UpstreamServiceUnavailableException.class)
+    public ResponseEntity<ApiError> handleUpstreamUnavailable(UpstreamServiceUnavailableException ex,
+                                                              HttpServletRequest request) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(DuplicateParkingSpaceException.class)

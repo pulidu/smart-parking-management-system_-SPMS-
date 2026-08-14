@@ -13,6 +13,10 @@ import com.smartparkingmanagementsystem.payment.exception.ReservationNotFoundExc
  * Verifies that a reservation exists by asking the parking service
  * {@code GET /api/parking/reservations/{id}}.
  *
+ * <p>The parking service is reached through Eureka service discovery using the
+ * load-balanced service name {@code lb://PARKING-SERVICE}; the actual instance
+ * address is resolved at runtime, so no host/port is hardcoded here.
+ *
  * <p>Kept behind a property toggle ({@code payment-service.verify-reservation},
  * default {@code true}) so the payment service can also run standalone for
  * local/demo scenarios. When enabled and the parking service is unreachable the
@@ -26,9 +30,9 @@ public class ReservationVerifier {
 
     public ReservationVerifier(
             @Value("${payment-service.verify-reservation:true}") boolean enabled,
-            @Value("${payment-service.parking-service-url:http://localhost:8083}") String parkingServiceUrl) {
+            RestClient restClient) {
         this.enabled = enabled;
-        this.restClient = RestClient.builder().baseUrl(parkingServiceUrl).build();
+        this.restClient = restClient;
     }
 
     /**
@@ -43,7 +47,7 @@ public class ReservationVerifier {
         }
         try {
             restClient.get()
-                    .uri("/api/parking/reservations/{id}", reservationId)
+                    .uri("lb://PARKING-SERVICE/api/parking/reservations/{id}", reservationId)
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientResponseException ex) {

@@ -25,9 +25,13 @@ server:
 
 payment-service:
   # Verify that a reservation exists by calling the parking service before
-  # recording a payment. Set to false to run the payment service standalone.
+  # recording a payment. The parking service is resolved through Eureka service
+  # discovery (lb://PARKING-SERVICE) at runtime - no host/port is configured.
+  # Set to false to run the payment service standalone.
   verify-reservation: true
-  # Where to reach the parking service for reservation verification.
-  parking-service-url: ${PARKING_SERVICE_URL:http://localhost:8083}
+  # Client timeouts for the load-balanced inter-service RestClient (ms).
+  client:
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
   # Card number that the MOCK gateway always declines (deterministic FAILED).
   mock-failed-card: ${MOCK_FAILED_CARD:4000000000000002}
