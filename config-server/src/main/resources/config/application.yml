@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------------
+# Common configuration served to EVERY SPMS microservice.
+# A client asking the Config Server for "/{application}/{profile}" receives
+# this file merged with its own "{application}.yml".
+# ---------------------------------------------------------------------------
+
+# Eureka registration / discovery defaults (shared by all services)
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+# Common actuator exposure for health checks (used by the gateway / Eureka)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

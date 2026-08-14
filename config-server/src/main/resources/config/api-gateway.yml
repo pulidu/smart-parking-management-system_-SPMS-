@@ -1,0 +1,14 @@
+# ---------------------------------------------------------------------------
+# api-gateway (Spring Cloud Gateway) - centralized configuration
+# ---------------------------------------------------------------------------
+
+spring:
+  application:
+    name: api-gateway
+
+server:
+  port: ${API_GATEWAY_PORT:8080}
+
+# Routes are declared with the Gateway starter once the api-gateway module is
+# implemented. Route URIs use the Eureka-discovered service names, e.g.
+#   lb://user-service

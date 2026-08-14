@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# user-service - centralized configuration
+# ---------------------------------------------------------------------------
+
+spring:
+  application:
+    name: user-service
+  datasource:
+    # Sensitive values come from environment variables; defaults are local-only
+    # placeholders and must be overridden outside source control.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${USER_DB_NAME:user_db}
+    username: ${USER_DB_USERNAME:user_service}
+    password: ${USER_DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+
+server:
+  port: ${USER_SERVICE_PORT:8081}

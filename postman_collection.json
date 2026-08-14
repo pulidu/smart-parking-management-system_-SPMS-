@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Smart Parking Management System (SPMS)",
-    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Endpoints for User, Vehicle, Parking and Payment services will be added as they are implemented.",
+    "description": "REST API collection for the SPMS microservices.\n\nPhase 1 includes infrastructure checks for the Eureka Service Registry. Phase 2 adds Config Server configuration endpoints. Endpoints for User, Vehicle, Parking and Payment services will be added as they are implemented.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -60,6 +60,144 @@
               "path": [
                 "actuator",
                 "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Config Server",
+      "item": [
+        {
+          "name": "Config Server Health (Actuator)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8888/actuator/health",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8888",
+              "path": [
+                "actuator",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Config: api-gateway",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8888/api-gateway/default",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8888",
+              "path": [
+                "api-gateway",
+                "default"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Config: user-service",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8888/user-service/default",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8888",
+              "path": [
+                "user-service",
+                "default"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Config: vehicle-service",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8888/vehicle-service/default",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8888",
+              "path": [
+                "vehicle-service",
+                "default"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Config: parking-service",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8888/parking-service/default",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8888",
+              "path": [
+                "parking-service",
+                "default"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Config: payment-service",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8888/payment-service/default",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8888",
+              "path": [
+                "payment-service",
+                "default"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Config: shared application config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8888/application/default",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8888",
+              "path": [
+                "application",
+                "default"
               ]
             }
           }

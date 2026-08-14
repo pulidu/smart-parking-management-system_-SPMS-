@@ -11,6 +11,7 @@ users, their vehicles, parking spaces, parking sessions and payments.
 | Framework        | Spring Boot 4.1.0                            |
 | Microservices    | Spring Cloud 2025.1.2 (Oakwood)              |
 | Service Registry | Spring Cloud Netflix Eureka Server 5.0.2     |
+| Config Server    | Spring Cloud Config Server 5.0.4             |
 | Build tool       | Apache Maven (Maven Wrapper `mvnw` included) |
 | API style        | REST (JSON)                                  |
 
@@ -67,7 +68,7 @@ through REST endpoints exposed via an API gateway.
 smart-parking-management-system/
 ├── pom.xml                 # Multi-module aggregator / parent POM
 ├── eureka-server/          # ✅ implemented (Phase 1)
-├── config-server/          # scaffold only (Phase 2+)
+├── config-server/          # ✅ implemented (Phase 2)
 ├── api-gateway/            # scaffold only (Phase 2+)
 ├── user-service/           # scaffold only (Phase 2+)
 ├── vehicle-service/        # scaffold only (Phase 2+)
@@ -85,7 +86,7 @@ smart-parking-management-system/
 |-------------------|----------------------------------------------|
 | Multi-module POM  | ✅ Done                                      |
 | `eureka-server`   | ✅ Done — standalone Eureka registry, port 8761 |
-| `config-server`   | ⏳ Pending (Phase 2)                         |
+| `config-server`   | ✅ Done — native-repo Config Server, port 8888 |
 | `api-gateway`     | ⏳ Pending (Phase 2)                         |
 | `user-service`    | ⏳ Pending (Phase 3)                         |
 | `vehicle-service` | ⏳ Pending (Phase 3)                         |
@@ -138,11 +139,53 @@ Started EurekaServerApplication ...
 | Health (actuator)         | http://localhost:8761/actuator/health                                 |
 | Registered applications   | http://localhost:8761/eureka/apps                                     |
 
-The dashboard shows **"Instances currently registered with Eureka"** — for now
-this is empty (no client service has been built yet), which is expected. The
-server is intentionally standalone: it neither registers itself
+The dashboard shows **"Instances currently registered with Eureka"** — after
+starting the Config Server this will list `CONFIG-SERVER`. The server itself is
+intentionally standalone: it neither registers itself
 (`eureka.client.register-with-eureka=false`) nor fetches the registry from a
 peer (`eureka.client.fetch-registry=false`).
+
+## Running the Config Server
+
+Build first (see above), start the Eureka Server (see previous section), then
+run one of:
+
+```bash
+# Option A - from the project root, using the Maven wrapper
+mvnw.cmd -pl config-server spring-boot:run
+
+# Option B - run the built executable jar (after `mvnw.cmd clean install`)
+java -jar config-server/target/config-server-0.0.1-SNAPSHOT.jar
+
+# Option C - from an IDE
+# Open the project, then run com.smartparkingmanagementsystem.config.ConfigServerApplication
+```
+
+On a successful start you will see:
+
+```
+Tomcat started on port 8888 (http) with context path '/'
+Started ConfigServerApplication ...
+```
+
+### Verifying
+
+| Check                           | URL / Command                                              |
+|---------------------------------|------------------------------------------------------------|
+| Config Server health (actuator) | http://localhost:8888/actuator/health                      |
+| Config for api-gateway          | http://localhost:8888/api-gateway/default                  |
+| Config for user-service         | http://localhost:8888/user-service/default                 |
+| Config for vehicle-service      | http://localhost:8888/vehicle-service/default              |
+| Config for parking-service      | http://localhost:8888/parking-service/default              |
+| Config for payment-service      | http://localhost:8888/payment-service/default              |
+| Shared config (all services)    | http://localhost:8888/application/default                  |
+| Eureka registry (CONFIG-SERVER) | http://localhost:8761/eureka/apps                          |
+
+The Config Server uses a **native repository** (`classpath:/config`) served on
+port 8888 and registers with Eureka as `CONFIG-SERVER`. The default `Accept`
+header returns YAML; `Accept: application/json` returns JSON. Each response
+contains the service-specific property source plus the shared `application.yml`
+source. Full details are in `config-server/README.md`.
 
 ## Configuration
 

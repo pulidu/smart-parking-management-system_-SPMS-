@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# parking-service - centralized configuration
+# ---------------------------------------------------------------------------
+
+spring:
+  application:
+    name: parking-service
+  datasource:
+    # Sensitive values come from environment variables; defaults are local-only
+    # placeholders and must be overridden outside source control.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${PARKING_DB_NAME:parking_db}
+    username: ${PARKING_DB_USERNAME:parking_service}
+    password: ${PARKING_DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+
+server:
+  port: ${PARKING_SERVICE_PORT:8083}
