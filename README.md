@@ -406,19 +406,6 @@ does not self-register).
 
 ![Eureka Dashboard](./docs/screenshots/Yureka%20Dashboard.png)
 
-**How to take the real screenshot**
-
-1. Start all seven services in the order listed above and wait for each to register
-   (watch the Eureka dashboard or the logs).
-2. Open `http://localhost:8761/` in a browser (Chrome/Edge).
-3. Wait for the **"Instances currently registered with Eureka"** table to list the
-   six applications with **UP** status (green).
-4. Press **Win + Shift + S** (Windows Snipping Tool), drag a rectangle over the
-   dashboard, and save the capture.
-5. Save it as `docs/screenshots/eureka_dashboard.png` (or the same filename from the
-   "Eureka Dashboard" request in the Postman **Infrastructure** folder — open the URL
-   and screenshot the result).
-
 ---
 
 ## Error Handling
