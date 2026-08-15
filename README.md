@@ -375,6 +375,27 @@ A complete, importable Postman collection is included:
 
 ---
 
+## Postman Collection
+
+[View Postman Collection](./postman_collection.json)
+
+## Screenshots
+
+### Screenshot 1
+
+The Eureka dashboard showing the microservices registered with the service
+registry.
+
+![Screenshot 1](./docs/screenshots/Yureka%20Dashboard%2001.png)
+
+### Screenshot 2
+
+The Eureka dashboard listing the registered service instances and their status.
+
+![Screenshot 2](./docs/screenshots/Yureka%20Dashboard%2002.png)
+
+---
+
 ## Eureka Dashboard
 
 After all seven services are running, open
