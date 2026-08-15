@@ -6,9 +6,10 @@
 # registration and management endpoints come from the Config Server
 # (config/payment-service.yml merged with config/application.yml).
 #
-# Database credentials are supplied through environment variables at runtime
-# (DB_HOST, DB_PORT, PAYMENT_DB_NAME, PAYMENT_DB_USERNAME, PAYMENT_DB_PASSWORD)
-# and are never committed to source control.
+# Database connection settings are served by the Config Server and default to
+# the shared local database (smart_parking_db, user postgres). They can be
+# overridden through the DB_HOST, DB_PORT, DB_NAME, DB_USERNAME and DB_PASSWORD
+# environment variables at runtime.
 
 spring:
   application:

@@ -1,7 +1,9 @@
 # Database Setup (PostgreSQL)
 
 This document describes how to provision PostgreSQL for the SPMS microservices.
-Each service keeps its own database so services stay decoupled.
+All services share a single database (`smart_parking_db`); each service owns its
+own tables within it (`users`, `vehicles`, `parking_spaces`, `reservations`,
+`payments`).
 
 > During development Hibernate manages the schema automatically
 > (`spring.jpa.hibernate.ddl-auto=update` for the services). Production should
@@ -12,93 +14,58 @@ Each service keeps its own database so services stay decoupled.
 
 - PostgreSQL 14+ installed and running on `localhost:5432`
   (or set the `DB_HOST` / `DB_PORT` environment variables).
-- The Postgres `psql` client on your `PATH`.
+- The Postgres `psql` client on your `PATH` (or pgAdmin).
 
-## 1. Create the database role and database
+## 1. Create the database
 
-Connect as a superuser (e.g. `postgres`) and run:
+Connect as the `postgres` superuser (pgAdmin or `psql`) and run:
 
 ```sql
--- user-service
-CREATE ROLE user_service WITH LOGIN PASSWORD 'change-me';
-CREATE DATABASE user_db OWNER user_service;
-
--- vehicle-service
-CREATE ROLE vehicle_service WITH LOGIN PASSWORD 'change-me';
-CREATE DATABASE vehicle_db OWNER vehicle_service;
-
--- parking-service
-CREATE ROLE parking_service WITH LOGIN PASSWORD 'change-me';
-CREATE DATABASE parking_db OWNER parking_service;
-
--- payment-service
-CREATE ROLE payment_service WITH LOGIN PASSWORD 'change-me';
-CREATE DATABASE payment_db OWNER payment_service;
+CREATE DATABASE smart_parking_db;
 ```
+
+No extra roles are required - every service connects as the `postgres` user.
 
 ## 2. Configure the service connection
 
-The service reads its connection settings from environment variables (no
-credentials are committed to the repository):
+The services read their connection settings from environment variables. The
+defaults already match the local setup (`smart_parking_db` / `postgres`), so for
+a local install you do **not** need to set anything:
 
-| Variable            | Value                                        |
-|---------------------|----------------------------------------------|
-| `DB_HOST`           | `localhost`                                  |
-| `DB_PORT`           | `5432`                                       |
-| `USER_DB_NAME`      | `user_db`                                    |
-| `USER_DB_USERNAME`  | `user_service`                               |
-| `USER_DB_PASSWORD`  | (the password you set above)                 |
-| `VEHICLE_DB_NAME`   | `vehicle_db`                                 |
-| `VEHICLE_DB_USERNAME` | `vehicle_service`                           |
-| `VEHICLE_DB_PASSWORD` | (the password you set above)               |
-| `PARKING_DB_NAME`   | `parking_db`                                 |
-| `PARKING_DB_USERNAME` | `parking_service`                         |
-| `PARKING_DB_PASSWORD` | (the password you set above)             |
-| `PAYMENT_DB_NAME`   | `payment_db`                                 |
-| `PAYMENT_DB_USERNAME` | `payment_service`                         |
-| `PAYMENT_DB_PASSWORD` | (the password you set above)             |
+| Variable      | Value            | Purpose                   |
+|---------------|------------------|---------------------------|
+| `DB_HOST`     | `localhost`      | PostgreSQL host           |
+| `DB_PORT`     | `5432`           | PostgreSQL port           |
+| `DB_NAME`     | `smart_parking_db` | Database name           |
+| `DB_USERNAME` | `postgres`       | DB user                   |
+| `DB_PASSWORD` | (your local postgres password) | DB password    |
 
-For example, in a terminal before starting the service:
+To override any of them, set the variable in a terminal before starting the
+services:
 
 ```bash
 # Windows (PowerShell)
 $env:DB_HOST = "localhost"
 $env:DB_PORT = "5432"
-$env:USER_DB_NAME = "user_db"
-$env:USER_DB_USERNAME = "user_service"
-$env:USER_DB_PASSWORD = "change-me"
-$env:VEHICLE_DB_NAME = "vehicle_db"
-$env:VEHICLE_DB_USERNAME = "vehicle_service"
-$env:VEHICLE_DB_PASSWORD = "change-me"
-$env:PARKING_DB_NAME = "parking_db"
-$env:PARKING_DB_USERNAME = "parking_service"
-$env:PARKING_DB_PASSWORD = "change-me"
-$env:PAYMENT_DB_NAME = "payment_db"
-$env:PAYMENT_DB_USERNAME = "payment_service"
-$env:PAYMENT_DB_PASSWORD = "change-me"
+$env:DB_NAME = "smart_parking_db"
+$env:DB_USERNAME = "postgres"
+$env:DB_PASSWORD = "2002"
 
 # Linux / macOS
-export DB_HOST=localhost DB_PORT=5432 USER_DB_NAME=user_db \
-       USER_DB_USERNAME=user_service USER_DB_PASSWORD=change-me \
-       VEHICLE_DB_NAME=vehicle_db VEHICLE_DB_USERNAME=vehicle_service \
-       VEHICLE_DB_PASSWORD=change-me \
-       PARKING_DB_NAME=parking_db PARKING_DB_USERNAME=parking_service \
-       PARKING_DB_PASSWORD=change-me \
-       PAYMENT_DB_NAME=payment_db PAYMENT_DB_USERNAME=payment_service \
-       PAYMENT_DB_PASSWORD=change-me
+export DB_HOST=localhost DB_PORT=5432 DB_NAME=smart_parking_db \
+       DB_USERNAME=postgres DB_PASSWORD=2002
 ```
 
-The Config Server assembles each service's JDBC URL as
-`jdbc:postgresql://${DB_HOST}:${DB_PORT}/${SERVICE_DB_NAME}` (e.g.
-`USER_DB_NAME` for the user service, `VEHICLE_DB_NAME` for the vehicle service,
-`PARKING_DB_NAME` for the parking service, `PAYMENT_DB_NAME` for the payment
-service).
+The Config Server assembles every service's JDBC URL as
+`jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}`.
 
 ## 3. Schema
 
-The `user-service` owns the `users` table. With
-`spring.jpa.hibernate.ddl-auto=update` it is created automatically from the
-`User` entity. The equivalent DDL is:
+With `spring.jpa.hibernate.ddl-auto=update` the tables are created automatically
+from the entities the first time each service starts. The expected DDL is
+documented below for reference.
+
+### user-service - `users` table
 
 ```sql
 CREATE TABLE IF NOT EXISTS users (
@@ -117,13 +84,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_users_email ON users (email);
 
 Notes:
 
-- `email` has a unique constraint — the service also checks for duplicates and
+- `email` has a unique constraint - the service also checks for duplicates and
   returns `409 Conflict` before the database is even hit (the constraint is the
   safety net for race conditions).
 - `password` stores a **BCrypt hash**, never the plain text.
 - `role` is one of `DRIVER`, `OWNER`, `ADMIN` (stored as a string).
 
-### vehicle-service — `vehicles` table
+### vehicle-service - `vehicles` table
 
 ```sql
 CREATE TABLE IF NOT EXISTS vehicles (
@@ -145,13 +112,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_vehicles_vehicle_number ON vehicles (vehicl
 
 Notes:
 
-- `user_id` references the owning user (no foreign key yet — the user service
+- `user_id` references the owning user (no foreign key yet - the user service
   owns users; ownership validation may be added in a later phase).
-- `vehicle_number` is unique — duplicates return `409 Conflict`.
+- `vehicle_number` is unique - duplicates return `409 Conflict`.
 - `status` is `OUTSIDE` or `INSIDE`; `entry_time` / `exit_time` track the most
   recent entry/exit events from the simulated entry/exit endpoints.
 
-### parking-service — `parking_spaces` and `reservations` tables
+### parking-service - `parking_spaces` and `reservations` tables
 
 ```sql
 CREATE TABLE IF NOT EXISTS parking_spaces (
@@ -184,14 +151,14 @@ CREATE TABLE IF NOT EXISTS reservations (
 
 Notes:
 
-- `space_number` is unique **per owner** (`owner_id, space_number`) — duplicates
+- `space_number` is unique **per owner** (`owner_id, space_number`) - duplicates
   return `409 Conflict`.
 - `status` is `AVAILABLE`, `RESERVED`, `OCCUPIED` or `MAINTENANCE`.
 - `reservations.status` is `PENDING`, `CONFIRMED`, `CANCELLED` or `COMPLETED`.
 - `user_id`, `vehicle_id` and `parking_space_id` are plain references (no foreign
   keys) so the parking service stays decoupled from the user/vehicle services.
 
-### payment-service — `payments` table
+### payment-service - `payments` table
 
 ```sql
 CREATE TABLE IF NOT EXISTS payments (
@@ -217,9 +184,9 @@ Notes:
 
 - `status` is `PENDING`, `SUCCESS` or `FAILED`.
 - `payment_method` is `CARD`, `CASH` or `MOCK_WALLET`.
-- The full card number is **never stored** — only `card_last4` (used to produce
+- The full card number is **never stored** - only `card_last4` (used to produce
   masked values like `**** **** **** 1111` in responses).
-- `transaction_id` is unique — each stored payment gets its own id.
+- `transaction_id` is unique - each stored payment gets its own id.
 - The duplicate-payment check runs in the service layer (a `PENDING`/`SUCCESS`
   payment blocks a new one for the same reservation); the partial unique index
   above is the PostgreSQL safety net for concurrent requests.
@@ -228,9 +195,12 @@ Notes:
 
 ## 4. Verify
 
-Start the service and check its health indicator (visible on
+Start the services and check each health indicator (e.g.
 `http://localhost:8081/actuator/health`), or connect directly:
 
 ```bash
-psql -h localhost -U user_service -d user_db -c "\d users"
+psql -h localhost -U postgres -d smart_parking_db -c "\dt"
 ```
+
+The `\dt` output should list `users`, `vehicles`, `parking_spaces`,
+`reservations` and `payments` after the services have started.

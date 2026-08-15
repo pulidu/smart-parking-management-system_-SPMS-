@@ -29,15 +29,16 @@ Config files live in `src/main/resources/config/`:
 | `parking-service.yml`| `parking-service`| port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) |
 | `payment-service.yml`| `payment-service`| port + PostgreSQL datasource (env-var placeholders) + JPA (ddl-auto) + mock gateway settings |
 
-All secrets/credentials use environment-variable placeholders with localhost
-defaults — no real secrets are committed. Example:
+All services share one PostgreSQL database. Connection settings default to the
+local setup (`localhost:5432/smart_parking_db`, user `postgres`) and use
+environment-variable placeholders so they can be overridden. Example:
 
 ```yaml
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${USER_DB_NAME:user_db}
-    username: ${USER_DB_USERNAME:user_service}
-    password: ${USER_DB_PASSWORD:}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:smart_parking_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:2002}
 ```
 
 ## Running

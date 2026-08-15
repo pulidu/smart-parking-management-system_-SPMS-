@@ -231,22 +231,23 @@ exactly one succeeds (the other receives the `409` state exception).
 
 ## Database
 
-Uses **PostgreSQL**. Connection settings come from environment variables and are
-**never hardcoded** in source control:
+Uses **PostgreSQL** - all SPMS services share the same database
+(`smart_parking_db`). Connection settings come from the Config Server and can be
+overridden via environment variables (the defaults match the local setup):
 
-| Environment variable   | Default     | Purpose                        |
-|------------------------|-------------|--------------------------------|
-| `DB_HOST`              | `localhost` | PostgreSQL host                |
-| `DB_PORT`              | `5432`      | PostgreSQL port                |
-| `PARKING_DB_NAME`      | `parking_db`| Database name                  |
-| `PARKING_DB_USERNAME`  | `parking_service` | DB user                 |
-| `PARKING_DB_PASSWORD`  | (empty)     | DB password                    |
-| `PARKING_SERVICE_PORT` | `8083`      | Service port                   |
+| Environment variable   | Default            | Purpose                        |
+|------------------------|--------------------|--------------------------------|
+| `DB_HOST`              | `localhost`        | PostgreSQL host                |
+| `DB_PORT`              | `5432`             | PostgreSQL port                |
+| `DB_NAME`              | `smart_parking_db` | Database name                  |
+| `DB_USERNAME`          | `postgres`         | DB user                        |
+| `DB_PASSWORD`          | (your local postgres password) | DB password          |
+| `PARKING_SERVICE_PORT` | `8083`             | Service port                   |
 | `EUREKA_SERVER_URL`    | `http://localhost:8761/eureka/` | Eureka registry URL |
 | `CONFIG_SERVER_URL`    | `http://localhost:8888` | Config Server URL      |
 
 The connection URL is assembled by the Config Server as
-`jdbc:postgresql://${DB_HOST}:${DB_PORT}/${PARKING_DB_NAME}`. Tables are created
+`jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}`. Tables are created
 automatically via `ddl-auto=update` (or by hand per
 [`docs/database-setup.md`](../docs/database-setup.md)):
 

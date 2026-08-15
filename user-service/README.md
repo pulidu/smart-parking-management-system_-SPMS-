@@ -192,22 +192,23 @@ that is part of the future security layer.
 
 ## Database
 
-Uses **PostgreSQL**. Connection settings come from environment variables and are
-**never hardcoded** in source control:
+Uses **PostgreSQL** - all SPMS services share the same database
+(`smart_parking_db`). Connection settings come from the Config Server and can be
+overridden via environment variables (the defaults match the local setup):
 
-| Environment variable | Default   | Purpose                        |
-|----------------------|-----------|--------------------------------|
-| `DB_HOST`            | `localhost` | PostgreSQL host              |
-| `DB_PORT`            | `5432`      | PostgreSQL port              |
-| `USER_DB_NAME`       | `user_db`   | Database name                |
-| `USER_DB_USERNAME`   | `user_service` | DB user                   |
-| `USER_DB_PASSWORD`   | (empty)     | DB password                  |
-| `USER_SERVICE_PORT`  | `8081`      | Service port                 |
+| Environment variable | Default            | Purpose                        |
+|----------------------|--------------------|--------------------------------|
+| `DB_HOST`            | `localhost`        | PostgreSQL host                |
+| `DB_PORT`            | `5432`             | PostgreSQL port                |
+| `DB_NAME`            | `smart_parking_db` | Database name                  |
+| `DB_USERNAME`        | `postgres`         | DB user                        |
+| `DB_PASSWORD`        | (your local postgres password) | DB password           |
+| `USER_SERVICE_PORT`  | `8081`             | Service port                   |
 | `EUREKA_SERVER_URL`  | `http://localhost:8761/eureka/` | Eureka registry URL |
 | `CONFIG_SERVER_URL`  | `http://localhost:8888` | Config Server URL    |
 
 The connection URL is assembled by the Config Server as
-`jdbc:postgresql://${DB_HOST}:${DB_PORT}/${USER_DB_NAME}`.
+`jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}`.
 
 > Dev convenience: the jar also ships with H2 on the runtime classpath so the
 > service can be started without PostgreSQL for local smoke tests (see below).

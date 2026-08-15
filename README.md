@@ -50,7 +50,8 @@ Parking operations in many real deployments are fragmented and manual:
 SPMS applies a **microservice architecture** with clear bounded contexts:
 
 - Each business capability (users, vehicles, parking, payments) is an independent,
-  deployable **Spring Boot service with its own database**.
+  deployable **Spring Boot service**. For local coursework all services share a
+  single PostgreSQL database (`smart_parking_db`), each owning its own tables.
 - Services register with **Eureka** and discover each other through **load-balanced
   service names** (`lb://USER-SERVICE`), so no hardcoded host/port is baked in.
 - A **Config Server** centralizes environment-specific configuration.
@@ -154,8 +155,9 @@ server itself does not self-register (`register-with-eureka=false`,
 ### Config Server
 Spring Cloud Config Server on port `8888` using a **native repository**
 (`classpath:/config`). It serves one YAML file per service plus a shared
-`application.yml` (Eureka defaults). Sensitive values (database passwords) are read
-from environment variables — nothing is committed. Example:
+`application.yml` (Eureka defaults). Database connection settings point every
+service at the shared `smart_parking_db`, default to the local `postgres` user,
+and can be overridden via environment variables. Example:
 `http://localhost:8888/user-service/default`.
 
 ### API Gateway
@@ -214,23 +216,24 @@ of the card are stored. Owns the `payments` table.
 
 ## Database Design
 
-Each microservice **owns its own database** and never shares a schema with another
-service — this is what keeps the services independently deployable. Cross-service
+For local coursework all services share a single PostgreSQL database
+(`smart_parking_db`); each service owns its own tables within it. Cross-service
 references are plain identifiers (no foreign keys) so the parking and payment
 services stay decoupled from the user/vehicle services.
 
-| Service          | Database (env var) | Tables                  | Ownership notes                                |
+| Service          | Database           | Tables                  | Ownership notes                                |
 |------------------|--------------------|-------------------------|------------------------------------------------|
-| User Service     | `USER_DB_NAME`     | `users`                 | email unique; password = BCrypt hash            |
-| Vehicle Service  | `VEHICLE_DB_NAME`  | `vehicles`              | vehicle_number unique                          |
-| Parking Service  | `PARKING_DB_NAME`  | `parking_spaces`, `reservations` | space_number unique per owner; reservations reference user/vehicle ids |
-| Payment Service  | `PAYMENT_DB_NAME`  | `payments`              | transaction_id unique; only card_last4 stored  |
+| User Service     | `smart_parking_db` | `users`                 | email unique; password = BCrypt hash            |
+| Vehicle Service  | `smart_parking_db` | `vehicles`              | vehicle_number unique                          |
+| Parking Service  | `smart_parking_db` | `parking_spaces`, `reservations` | space_number unique per owner; reservations reference user/vehicle ids |
+| Payment Service  | `smart_parking_db` | `payments`              | transaction_id unique; only card_last4 stored  |
 
-Connection settings come from environment variables
-(`DB_HOST`, `DB_PORT`, `<SERVICE>_DB_NAME`, `<SERVICE>_DB_USERNAME`,
-`<SERVICE>_DB_PASSWORD`) — **no credentials are committed**. Schema is managed by
-Hibernate (`ddl-auto=update`); production should migrate to Flyway/Liquibase. The
-full DDL and provisioning steps are in
+Connection settings are served by the Config Server and default to the local
+setup (`localhost:5432/smart_parking_db`, user `postgres`). They can be
+overridden through the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME` and
+`DB_PASSWORD` environment variables. Schema is managed by Hibernate
+(`ddl-auto=update`); production should migrate to Flyway/Liquibase. The full DDL
+and provisioning steps are in
 [`docs/database-setup.md`](docs/database-setup.md).
 
 ---
@@ -322,11 +325,12 @@ Start each service in its own terminal window, in this exact order:
 | 6    | Payment Service| `mvnw.cmd -pl payment-service spring-boot:run`| 8084 |
 | 7    | API Gateway    | `mvnw.cmd -pl api-gateway spring-boot:run`    | 8080 |
 
-**Database**: set the `DB_HOST`, `DB_PORT` and per-service
-`<SERVICE>_DB_NAME/_USERNAME/_PASSWORD` environment variables (see
-[`docs/database-setup.md`](docs/database-setup.md)) **before** starting the
-services. If you do not have PostgreSQL, you can start each service with in-memory
-H2 instead:
+**Database**: the services connect to the shared `smart_parking_db` on
+`localhost:5432` as `postgres` by default (see
+[`docs/database-setup.md`](docs/database-setup.md)) — only set the `DB_HOST`,
+`DB_PORT`, `DB_NAME`, `DB_USERNAME` or `DB_PASSWORD` environment variables to
+override these. If you do not have PostgreSQL, you can start each service with
+in-memory H2 instead:
 
 ```powershell
 mvnw.cmd -pl user-service spring-boot:run `
