@@ -339,12 +339,6 @@ mvnw.cmd -pl user-service spring-boot:run `
   --spring.datasource.username=sa --spring.datasource.password= `
   --spring.jpa.hibernate.ddl-auto=create-drop
 ```
-
-> Repeat the `--spring.datasource.*` overrides for the vehicle, parking and payment
-> services. H2 is in-memory — restarting a service wipes its data. The gateway loads
-> its routes from the Config Server at startup, so the Config Server (step 2) must be
-> running before the gateway starts.
-
 **Verify**
 
 | Check                     | URL                                              |
