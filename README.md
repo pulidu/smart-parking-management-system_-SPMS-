@@ -406,6 +406,8 @@ does not self-register).
 
 ![Eureka Dashboard](./docs/screenshots/eureka_dashboard.png)
 
+![Eureka Dashboard](./docs/screenshots/Yureka%20Dashboard.png)
+
 > The screenshot file is not committed to the repository — take it yourself after
 > starting all services (see the steps below) and save it to
 > `docs/screenshots/eureka_dashboard.png`.
